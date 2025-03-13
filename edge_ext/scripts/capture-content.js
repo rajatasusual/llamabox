@@ -5,7 +5,6 @@ function captureReadableContent() {
             const pageData = {
                 title: article.title || document.title,
                 content: article.textContent,
-                html: article.content,
                 url: window.location.href,
                 date: new Date().toISOString()
             };

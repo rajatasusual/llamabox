@@ -2,17 +2,22 @@ chrome.runtime.onInstalled.addListener(() => {
     chrome.action.setBadgeText({ text: "OFF" });
     chrome.action.setBadgeBackgroundColor({ color: '#CCCCC0' });
 
-     // Set tooltip with shortcut info
-     chrome.action.setTitle({
-        title: "Shortcuts:\nCtrl+B - Toggle Extension\nCtrl+A - Capture Page",
-    });
+    // Set tooltip with shortcut information
+    updateTooltip();
 });
 
 // Listen for shortcut commands
-chrome.commands.onCommand.addListener((command, tab) => {
+chrome.commands.onCommand.addListener(async (command, tab) => {
+
     if (command === "toggle-extension") {
         toggleExtension(tab);
     } else if (command === "capture-page") {
+        const state = await chrome.action.getBadgeText({ tabId: tab.id });
+        // Check if the extension is enabled
+        if (state === 'OFF') {
+            // If the extension is off, do nothing
+            return;
+        }
         captureFullPage(tab);
     }
 });
@@ -52,4 +57,18 @@ function captureFullPage(tab) {
         target: { tabId: tab.id },
         files: ["scripts/readability.js", "scripts/capture-content.js"]
     });
+}
+
+async function updateTooltip() {
+    const commands = await chrome.commands.getAll();
+    let tooltipText = "Shortcuts:\n";
+
+    commands.forEach(cmd => {
+        if (cmd.shortcut === "") {
+            return;
+        }
+        tooltipText += `${cmd.description}: ${cmd.shortcut || "Not set"}\n`;
+    });
+
+    chrome.action.setTitle({ title: tooltipText });
 }

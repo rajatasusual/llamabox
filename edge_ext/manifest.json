@@ -15,7 +15,7 @@
         }
     },
     "background": {
-        "service_worker": "scripts/service-worker.js"
+        "service_worker": "service-worker.js"
     },
     "host_permissions": [
         "<all_urls>"
@@ -26,6 +26,7 @@
                 "<all_urls>"
             ],
             "js": [
+                "scripts/common.js",
                 "scripts/click.js"
             ]
         }
@@ -50,10 +51,18 @@
         },
         "capture-page": {
             "suggested_key": {
-                "default": "Ctrl+A",
-                "mac": "Command+A"
+                "default": "Alt+B",
+                "mac": "Alt+B"
             },
             "description": "Capture entire page content"
         }
+    },
+    "icons": {
+        "16": "images/icon.png",
+        "48": "images/icon.png",
+        "128": "images/icon.png"
+    },
+    "content_security_policy": {
+        "extension_pages": "script-src 'self'; object-src 'none'"
     }
 }

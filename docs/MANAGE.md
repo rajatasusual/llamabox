@@ -20,6 +20,7 @@ vmstat                     # Virtual memory stats
 uptime                     # System uptime
 uname -a                   # Kernel info
 lscpu                      # CPU info
+ss -l                      # List all open por
 ```
 
 ### Package Management

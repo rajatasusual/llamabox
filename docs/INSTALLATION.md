@@ -312,6 +312,14 @@ sudo apt install fail2ban
 sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
 sudo nano /etc/fail2ban/jail.local
 ```
+
+Ensure ssh is configured with systemd backend
+```bash
+[sshd]
+enabled = true
+backend = systemd
+```
+
 Check allowed IPs and restart:
 ```bash
 sudo systemctl restart fail2ban

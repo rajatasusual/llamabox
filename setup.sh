@@ -224,6 +224,7 @@ EOF
 
     echo "Configuring Fail2Ban..."
     sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
+    sudo sed -i '/^\[sshd\]/,/^$/c\[sshd]\nenabled = true\nbackend = systemd\n' /etc/fail2ban/jail.local
     sudo systemctl restart fail2ban
 
     # ----------------------------------------

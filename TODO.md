@@ -50,6 +50,7 @@ This roadmap outlines the planned features for WSL Assistant. While there are ma
   - [ ] Implement resource allocation controls
   - [ ] Set up shared resource management
 
+- Extension to capture all captured data.
 ---
 
 ## **Deployment & Distribution**

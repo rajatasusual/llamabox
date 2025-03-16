@@ -6,7 +6,7 @@ echo "Starting WSL Assistant services..."
 echo "===================================="
 
 # --- Redis Stack Server ---
-echo "[1/3] Starting Redis Stack Server..."
+echo "[1/4] Starting Redis Stack Server..."
 sudo systemctl start redis-stack-server
 # Give Redis a moment to start up
 sleep 2
@@ -17,7 +17,7 @@ else
 fi
 
 # --- Neo4j ---
-echo "[2/3] Starting Neo4j..."
+echo "[2/4] Starting Neo4j..."
 sudo systemctl start neo4j
 # Allow some time for Neo4j to initialize
 sleep 5
@@ -29,7 +29,7 @@ else
 fi
 
 # --- llama-server ---
-echo "[3/3] Starting llama-server..."
+echo "[3/4] Starting llama-server..."
 # Check if llama-server is already running
 if curl -s -X GET http://localhost:8080/health | grep -q '"status":"ok"'; then
     echo "✅ llama-server is already running."
@@ -41,6 +41,22 @@ else
         echo "✅ llama-server started successfully."
     else
         echo "❌ Error: llama-server failed to start."
+    fi
+fi
+
+# --- http-server ---
+echo "[4/4] Starting http-server..."
+# Check if http-server is already running
+if curl -s -X GET http://localhost:5000/health | grep -q '"status":"ok"'; then
+    echo "✅ http-server is already running."
+else
+    # Launch http-server in the background.
+    $HOME/venv/bin/python $HOME/http-server/http-server.py &
+    sleep 2
+    if pgrep -x "http-server" > /dev/null; then
+        echo "✅ http-server started successfully."
+    else
+        echo "❌ Error: http-server failed to start."
     fi
 fi
 

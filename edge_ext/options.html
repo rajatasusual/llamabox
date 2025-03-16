@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extension Settings</title>
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --hover-color: #3046c9;
+            --bg-color: #f8f9fa;
+            --text-color: #2b2d42;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            padding: 2rem;
+            max-width: 480px;
+            margin: 0 auto;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        h2 {
+            font-size: 1.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s ease;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        button {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        button:hover {
+            background-color: var(--hover-color);
+        }
+
+        button:disabled {
+            background-color: #e9ecef;
+            cursor: not-allowed;
+        }
+
+        .spinner {
+            display: none;
+            width: 1rem;
+            height: 1rem;
+            border-radius: 50%;
+            border: 2px solid var(--primary-color);
+            border-top-color: transparent;
+            animation: spin 0.6s linear infinite;
+        }
+    </style>
+</head>
+
+<body>
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem">
+        <img src="images/icon.png" alt="Extension Icon" style="width:32px;height:32px">
+        <h2 style="margin:0">Extension Settings</h2>
+    </div>
+    <div class="form-group" style="max-width:400px">
+        <label for="hostIp">WSL Server IP</label>
+        <input required pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$" type="text" id="hostIp" placeholder="192.168.1.1" />
+    </div>
+    <button id="save" disabled style="max-width:400px">Save Settings</button>
+    <script src="scripts/common.js"></script>
+    <script src="scripts/options.js"></script>
+</body>
+
+</html>

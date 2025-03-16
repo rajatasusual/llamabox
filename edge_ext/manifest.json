@@ -1,0 +1,62 @@
+{
+    "manifest_version": 3,
+    "name": "WSL Extension",
+    "version": "1.0",
+    "description": "Captures snippets or entire webpage content.",
+    "permissions": [
+        "activeTab",
+        "storage",
+        "tabs",
+        "scripting",
+        "alarms"
+    ],
+    "options_page": "options.html",
+    "action": {
+        "default_icon": {
+            "16": "images/icon.png"
+        }
+    },
+    "background": {
+        "service_worker": "service-worker.js"
+    },
+    "host_permissions": [
+        "<all_urls>"
+    ],
+    "content_scripts": [
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "scripts/readability.js",
+                "scripts/common.js",
+                "scripts/SnippetManager.js",
+                "scripts/PageCapture.js"
+            ]
+        }
+    ],
+    "commands": {
+        "toggle-extension": {
+            "suggested_key": {
+                "default": "Ctrl+B",
+                "mac": "Command+B"
+            },
+            "description": "Enable/Disable the extension"
+        },
+        "capture-page": {
+            "suggested_key": {
+                "default": "Alt+B",
+                "mac": "Alt+B"
+            },
+            "description": "Capture entire page content"
+        }
+    },
+    "icons": {
+        "16": "images/icon.png",
+        "48": "images/icon.png",
+        "128": "images/icon.png"
+    },
+    "content_security_policy": {
+        "extension_pages": "script-src 'self'; object-src 'none'"
+    }
+}

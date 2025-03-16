@@ -22,11 +22,13 @@ Prerequisites:
 4. [Install Redis Stack Server](#4-install-redis-stack-server)
 5. [Install Neo4j](#5-install-neo4j)
 6. [Install llama.cpp and AI Models](#6-install-llamacpp-and-ai-models)
-7. [Auto-Restart Services on Crash](#7-auto-restart-services-on-crash)
-8. [Secure the Server](#8-secure-the-server)
-9. [Make Redis Persistent](#9-make-redis-persistent)
-10. [Verify Setup](#10-verify-setup)
-11. [Manage your setup](#11-manage-your-setup)
+7. [Install Embedding Model](#7-install-embedding-model)
+8. [Create HTTP Server Service](#8-create-http-server-service)
+9. [Auto-Restart Services on Crash](#9-auto-restart-services-on-crash)
+10. [Secure the Server](#10-secure-the-server)
+11. [Make Redis Persistent](#11-make-redis-persistent)
+12. [Verify Setup](#12-verify-setup)
+13. [Manage your setup](#13-manage-your-setup)
 
 
 ## **1. Configure WSL**
@@ -244,8 +246,58 @@ WantedBy=multi-user.target
    curl -X GET http://localhost:8080/health
    ```
 ---
+## **7. Install Embedding Model**
 
-## **7. Create HTTP Server Service**
+### **Download and Setup Model**
+```bash
+# Clone model repository
+GIT_LFS_SKIP_SMUDGE=1 git clone https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF
+cd nomic-embed-text-v1.5-GGUF
+
+# Pull specific model file
+git lfs pull --include "nomic-embed-text-v1.5.Q2_K.gguf"
+
+# Move to models directory
+mv nomic-embed-text-v1.5.Q2_K.gguf $HOME/models/nomic-embed-text-v1.5.gguf
+cd $HOME
+```
+
+### **Create Embed Server Service**
+Create file at `/etc/systemd/system/embed-server.service`:
+```ini
+[Unit]
+Description=embed-server Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/llama-server --embedding --port 8000 -ngl 99 -m $HOME/models/nomic-embed-text-v1.5.Q2_K.gguf -c 8192 -b 8192 --rope-scaling yarn --rope-freq-scale .75 --host 0.0.0.0
+Restart=on-abnormal
+RestartSec=3
+User=$USER
+WorkingDirectory=$HOME
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=embed-server
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### **Enable and Test Service**
+```bash
+# Enable and start service
+sudo systemctl daemon-reload
+sudo systemctl enable embed-server
+sudo systemctl start embed-server
+
+# Test server health
+curl -X GET http://localhost:8000/health
+```
+
+---
+
+## **8. Create HTTP Server Service**
 
 ```bash
 # Set up HTTP server by copying the flask server script from the repository
@@ -303,7 +355,7 @@ WantedBy=multi-user.target
    curl -X GET http://localhost:5000/health
    ```
 
-## **8. Auto-Restart Services on Crash**
+## **9. Auto-Restart Services on Crash**
 ```bash
 cd /etc/systemd/system/
 sudo cp /lib/systemd/system/neo4j.service .
@@ -327,7 +379,7 @@ redis-cli ping
 curl -X GET http://localhost:8080/health
 ```
 
-## **9. Secure the Server**
+## **10. Secure the Server**
 ### **Step 1: Disable Root SSH Login**
 ```bash
 sudo nano /etc/ssh/sshd_config
@@ -386,7 +438,7 @@ sudo iptables -L  # Verify rules
 
 ---
 
-## **10. Make Redis Persistent**
+## **11. Make Redis Persistent**
 ```bash
 echo "save 900 1" | sudo tee -a /etc/redis-stack.conf
 sudo systemctl restart redis-stack-server
@@ -394,7 +446,7 @@ sudo systemctl restart redis-stack-server
 
 ---
 
-## **11. Verify Setup**
+## **12. Verify Setup**
 - **Check Running Processes**
   ```bash
   top
@@ -406,6 +458,6 @@ sudo systemctl restart redis-stack-server
 
 ---
 
-## **12. Manage your Setup**
+## **13. Manage your Setup**
 
 For detailed commands and instructions on managing your services—including handling processes on both Debian and Windows—please refer to [MANAGE.md](docs/MANAGE.md). This document covers system-specific commands, troubleshooting tips, and best practices for maintaining your RAG AI Assistant setup.

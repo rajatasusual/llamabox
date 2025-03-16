@@ -125,13 +125,15 @@ echo "Installing Git LFS for model download..."
 cd $HOME
 curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
 sudo apt-get install git-lfs
-
+# ----------------------------------------
+# 4.1 Downloading SmolLM2-360M-Instruct Model
+# ----------------------------------------
 if [ ! -d "SmolLM2-360M-Instruct" ]; then
     echo "Cloning SmolLM2-360M-Instruct model repository..."
-    git clone https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct
+    GIT_LFS_SKIP_SMUDGE=1 git clone https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct
     cd SmolLM2-360M-Instruct
-    git lfs install
-    git lfs pull
+    git lfs pull --include="model.safetensors"
+    cd $HOME
 else
     echo "SmolLM2-360M-Instruct model repository already exists."
 fi
@@ -149,13 +151,27 @@ python $HOME/llama.cpp/convert_hf_to_gguf.py SmolLM2-360M-Instruct --outfile $HO
 llama-quantize $HOME/models/SmolLM2.gguf $HOME/models/SmolLM2.q8.gguf Q8_0 4
 deactivate
 
+# ----------------------------------------
+# 4.2 Downloading nomic-embed-text-v1.5-GGUF Model
+# ----------------------------------------
+if [ ! -d "nomic-embed-text-v1.5-GGUF" ]; then
+    echo "Cloning nomic-embed-text-v1.5-GGUF model repository..."
+    GIT_LFS_SKIP_SMUDGE=1 git clone https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF
+    cd nomic-embed-text-v1.5-GGUF
+    git lfs pull --include "nomic-embed-text-v1.5.Q2_K.gguf"
+    mv nomic-embed-text-v1.5.Q2_K.gguf $HOME/models/nomic-embed-text-v1.5.gguf
+    cd $HOME
+else
+    echo "nomic-embed-text-v1.5-GGUF model repository already exists."
+fi
+
+# ----------------------------------------
+# 5. Create systemd service for llama-server
+# ----------------------------------------
+echo "Creating service for llama-server..."
 if [[ "$VIRT" != "wsl" ]]; then
     nohup llama-server -m $HOME/models/SmolLM2.q8.gguf > llama-server.log 2>&1 &
 else 
-    # ----------------------------------------
-    # 5. Create systemd service for llama-server
-    # ----------------------------------------
-    echo "Creating systemd service for llama-server..."
     sudo tee /etc/systemd/system/llama-server.service > /dev/null <<EOF
 [Unit]
 Description=llama-server Service
@@ -163,7 +179,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/llama-server -m \$HOME/models/SmolLM2.q8.gguf --host 0.0.0.0
+ExecStart=/usr/local/bin/llama-server -m $HOME/models/SmolLM2.q8.gguf --host 0.0.0.0
 Restart=on-abnormal
 RestartSec=3
 User=$USER
@@ -189,6 +205,44 @@ else
 fi
 
 # ----------------------------------------
+# 5.2 create embeddings server with nomic-embed-text-v1.5
+# ----------------------------------------
+echo "Creating service for embed-server..."
+if [[ "$VIRT" != "wsl" ]]; then
+    nohup llama-server --embedding --port 8000 -ngl 99 -m $HOME/models/nomic-embed-text-v1.5.gguf -c 8192 -b 8192 --rope-scaling yarn --rope-freq-scale .75 > embedding-server.log 2>&1 &
+else 
+    sudo tee /etc/systemd/system/embed-server.service > /dev/null <<EOF
+[Unit]
+Description=embed-server Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/llama-server --embedding --port 8000 -ngl 99 -m $HOME/models/nomic-embed-text-v1.5.gguf -c 8192 -b 8192 --rope-scaling yarn --rope-freq-scale .75 --host 0.0.0.0
+Restart=on-abnormal
+RestartSec=3
+User=$USER
+WorkingDirectory=$HOME
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=embed-server
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    sudo systemctl daemon-reload
+    sudo systemctl enable embed-server
+    sudo systemctl start embed-server
+fi
+
+sleep 5
+if curl -s -X GET http://localhost:8000/health | grep -q '"status":"ok"'; then
+    echo "✅ llama-server is healthy."
+else
+    echo "❌ Error: llama-server health check failed."
+    exit 1
+fi
+# ----------------------------------------
 # 6. Download and Configure http-server.py
 # ----------------------------------------
 echo "Downloading http-server.py..."
@@ -206,7 +260,7 @@ if [[ "$VIRT" != "wsl" ]]; then
     nohup $HOME/venv/bin/python $HOME/http-server/http-server.py > http-server.log 2>&1 &
 else 
     # ----------------------------------------
-    # 5. Create systemd service for http-server
+    # 7. Create systemd service for http-server
     # ----------------------------------------
     echo "Creating systemd service for http-server..."
     sudo tee /etc/systemd/system/http-server.service > /dev/null <<EOF
@@ -245,14 +299,14 @@ fi
 
 if [[ "$VIRT" == "wsl" ]]; then
     # ----------------------------------------
-    # 6. Configure Auto-Restart for Redis and Neo4j
+    # 8. Configure Auto-Restart for Redis and Neo4j
     # ----------------------------------------
     echo "Configuring auto-restart for Redis and Neo4j..."
     sudo sed -i '/^\[Service\]/a Restart=on-abnormal\nRestartSec=5' /lib/systemd/system/neo4j.service
     sudo sed -i '/^\[Service\]/a Restart=on-abnormal\nRestartSec=5' /lib/systemd/system/redis-stack-server.service
     sudo systemctl daemon-reload
     # ----------------------------------------
-    # 7. Secure the Server
+    # 9. Secure the Server
     # ----------------------------------------
     echo "Securing the server..."
     sudo apt purge -y unattended-upgrades
@@ -282,16 +336,13 @@ EOF
     sudo sed -i '/^\[sshd\]/,/^$/c\[sshd]\nenabled = true\nbackend = systemd\n' /etc/fail2ban/jail.local
     sudo systemctl restart fail2ban
 
-    # ----------------------------------------
-    # 8. Make Redis Persistent
-    # ----------------------------------------
     echo "Configuring Redis persistence..."
     echo "save 900 1" | sudo tee -a /etc/redis-stack.conf
     sudo systemctl restart redis-stack-server
 fi
 
 # ----------------------------------------
-# 9. Finalize Setup
+# 10. Finalize Setup
 # ----------------------------------------
 echo "===================================="
 echo "Setup complete. Please verify all services are running."

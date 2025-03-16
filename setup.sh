@@ -168,11 +168,10 @@ fi
 # ----------------------------------------
 # 5. Create systemd service for llama-server
 # ----------------------------------------
-echo "Creating systemd service for llama-server..."
+echo "Creating service for llama-server..."
 if [[ "$VIRT" != "wsl" ]]; then
     nohup llama-server -m $HOME/models/SmolLM2.q8.gguf > llama-server.log 2>&1 &
 else 
-    echo "Creating systemd service for llama-server..."
     sudo tee /etc/systemd/system/llama-server.service > /dev/null <<EOF
 [Unit]
 Description=llama-server Service
@@ -208,10 +207,10 @@ fi
 # ----------------------------------------
 # 5.2 create embeddings server with nomic-embed-text-v1.5
 # ----------------------------------------
+echo "Creating service for embed-server..."
 if [[ "$VIRT" != "wsl" ]]; then
-    nohup llama-server --embedding --port 8000 -ngl 99 -m $HOME/models/nomic-embed-text-v1.5.Q2_K.gguf -c 8192 -b 8192 --rope-scaling yarn --rope-freq-scale .75 > embedding-server.log 2>&1 &
+    nohup llama-server --embedding --port 8000 -ngl 99 -m $HOME/models/nomic-embed-text-v1.5.gguf -c 8192 -b 8192 --rope-scaling yarn --rope-freq-scale .75 > embedding-server.log 2>&1 &
 else 
-    echo "Creating systemd service for embed-server..."
     sudo tee /etc/systemd/system/embed-server.service > /dev/null <<EOF
 [Unit]
 Description=embed-server Service
@@ -219,7 +218,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/llama-server --embedding --port 8000 -ngl 99 -m $HOME/models/nomic-embed-text-v1.5.Q2_K.gguf -c 8192 -b 8192 --rope-scaling yarn --rope-freq-scale .75 --host 0.0.0.0
+ExecStart=/usr/local/bin/llama-server --embedding --port 8000 -ngl 99 -m $HOME/models/nomic-embed-text-v1.5.gguf -c 8192 -b 8192 --rope-scaling yarn --rope-freq-scale .75 --host 0.0.0.0
 Restart=on-abnormal
 RestartSec=3
 User=$USER

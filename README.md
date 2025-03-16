@@ -1,4 +1,5 @@
-# WSL Assistant 🚀  
+# Llamabox - WSL Assistant <img src="assets/icon.png" width="32" height="32" style="vertical-align: middle"> 
+
 [![Distro Health](https://github.com/rajatasusual/wsl-assistant/actions/workflows/check.yml/badge.svg?branch=master)](https://github.com/rajatasusual/wsl-assistant/actions/workflows/check.yml) ![WSL2](https://img.shields.io/badge/WSL2-Supported-blue) ![Debian](https://img.shields.io/badge/Debian-Supported-blue) ![License](https://img.shields.io/badge/License-MIT-green)  
 
 *Run a fully integrated AI and database stack on your low-end, CPU-only Windows machine—secure, resilient, and privacy-focused.*  
@@ -42,6 +43,7 @@ With a memory footprint as low as **1GB**, WSL Assistant lets you run **local AI
 - [11. Contributing](#11-contributing)
 - [12. License](#12-license)
 - [13. Credits](#13-credits)
+- [14. Browser Extension](#14-browser-extension)
 
 ---
 
@@ -67,6 +69,7 @@ Most AI frameworks are built for **high-end GPUs**, making them **unusable on ol
 | **llama.cpp**   | Local AI inference engine (CPU-optimized) |
 | **Fail2Ban & UFW** | Security hardening against brute-force attacks |
 | **Systemd Auto-Restart** | Ensures services are resilient to crashes |
+| **Local HTTP Server** | Syncs captured pages/snippets from the browser extension |
 
 ---
 
@@ -75,6 +78,7 @@ Most AI frameworks are built for **high-end GPUs**, making them **unusable on ol
 - **Self-hosted AI assistant**: Use `llama.cpp` for **CPU-only inference**.  
 - **Privacy-first chatbots**: Avoid OpenAI/Google APIs—run everything **offline**.  
 - **Edge AI applications**: Ideal for **low-end devices** with limited compute.  
+- **Web Content Capture**: Use the browser extension to capture and sync web content.
 
 ---
 
@@ -169,7 +173,6 @@ WSL Assistant is optimized for **low-latency CPU-only inference**. Below is a be
 ---
 
 ## **9. Roadmap**  
-## **9. Roadmap**  
 Please see [TODO.md](TODO.md) for our detailed roadmap. This project is under active development, and we welcome community input on prioritizing features.
 
 ---
@@ -210,3 +213,28 @@ Shout-out to:
 - **[Redis](https://redis.io/)** for vector storage  
 - **[Neo4j](https://neo4j.com/)** for knowledge graphs  
 - **The WSL Community** for making Linux on Windows seamless  
+
+---
+
+## **14. Browser Extension**
+
+## **14. Browser Extension**
+
+WSL Assistant includes a lightweight browser extension to capture web content for your AI-powered knowledge base:
+
+✅ **Quick Content Capture**:
+- Select text snippets from any webpage
+- Extract full article content using Mozilla's Readability
+- Keyboard shortcuts for quick actions (Ctrl+B, Alt+B)
+
+✅ **Key Features**:
+- Automatic sync with local WSL server
+- Secure data storage and transmission
+- Easy configuration via options page
+- Dynamic status indicators
+- Works offline with periodic sync
+
+✅ **Installation**:
+Load as an unpacked extension in Chrome/Edge and configure your WSL host IP.
+
+For detailed setup instructions and documentation, see [edge_ext/README.md](edge_ext/README.md).

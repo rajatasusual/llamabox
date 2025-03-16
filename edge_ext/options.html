@@ -66,20 +66,6 @@
         button:hover {
             background-color: var(--hover-color);
         }
-
-        .status {
-            margin-top: 1rem;
-            padding: 0.75rem;
-            border-radius: 8px;
-            background-color: #d4edda;
-            color: #155724;
-            font-size: 0.875rem;
-            display: none;
-        }
-
-        .status.visible {
-            display: block;
-        }
     </style>
 </head>
 <body>
@@ -89,8 +75,7 @@
         <input type="text" id="hostIp" placeholder="e.g., 192.168.1.29">
     </div>
     <button id="save">Save Settings</button>
-    <div class="status" id="status"></div>
-
+    <script src="scripts/common.js"></script>
     <script src="scripts/options.js"></script>
 </body>
 </html>

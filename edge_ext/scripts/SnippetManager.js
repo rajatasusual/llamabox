@@ -1,8 +1,4 @@
 class SnippetManager {
-    constructor() {
-        this.isListenerActive = false;
-    }
-
     saveSnippet(snippetData) {
         chrome.storage.local.get('snippets', (result) => {
             let snippets = result.snippets || [];
@@ -33,13 +29,11 @@ class SnippetManager {
     }
 
     toggleListener(state) {
-        if (state && !this.isListenerActive) {
+        if (state) {
             document.addEventListener('mouseup', this.handleMouseUp, true);
-            this.isListenerActive = true;
             console.log('Mouseup listener added.');
-        } else if (!state && this.isListenerActive) {
+        } else if (!state) {
             document.removeEventListener('mouseup', this.handleMouseUp, true);
-            this.isListenerActive = false;
             console.log('Mouseup listener removed.');
         }
     }
@@ -55,4 +49,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         snippetManager.toggleListener(false);
         sendResponse({ status: 'done' });
     }
+    if (message.refreshActive){
+        snippetManager.toggleListener(message.refreshActive.state);
+        sendResponse({ status: 'done' });
+    }
+    return true; // Keep the message channel open for sendResponse
 });

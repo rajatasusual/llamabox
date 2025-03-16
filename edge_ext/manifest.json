@@ -7,8 +7,10 @@
         "activeTab",
         "storage",
         "tabs",
-        "scripting"
+        "scripting",
+        "alarms"
     ],
+    "options_page": "options.html",
     "action": {
         "default_icon": {
             "16": "images/icon.png"
@@ -26,18 +28,10 @@
                 "<all_urls>"
             ],
             "js": [
+                "scripts/readability.js",
                 "scripts/common.js",
-                "scripts/click.js"
-            ]
-        }
-    ],
-    "web_accessible_resources": [
-        {
-            "resources": [
-                "scripts/readability.js"
-            ],
-            "matches": [
-                "<all_urls>"
+                "scripts/SnippetManager.js",
+                "scripts/PageCapture.js"
             ]
         }
     ],

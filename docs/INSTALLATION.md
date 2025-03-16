@@ -245,7 +245,65 @@ WantedBy=multi-user.target
    ```
 ---
 
-## **7. Auto-Restart Services on Crash**
+## **7. Create HTTP Server Service**
+
+```bash
+# Set up HTTP server by copying the flask server script from the repository
+mkdir http-server
+cd http-server
+curl -o http-server.py https://raw.githubusercontent.com/rajatasusual/wsl-assistant/refs/heads/master/http-server.py
+chmod +x http-server.py
+cd $HOME
+
+# Setup Python environment
+python3 -m venv venv
+source ~/venv/bin/activate
+pip install Flask
+deactivate
+```
+
+### **Create Service File**
+Create file at `/etc/systemd/system/http-server.service`:
+```ini
+[Unit]
+Description=http-server Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=$HOME/venv/bin/python $HOME/http-server/http-server.py
+Restart=on-abnormal
+RestartSec=3
+User=$USER
+WorkingDirectory=$HOME/http-server
+Environment=PYTHONUNBUFFERED=1
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=http-server
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### **Instructions to Enable the Service**
+
+1. **Reload Systemd:**
+   ```bash
+   sudo systemctl daemon-reload
+   ```
+
+2. **Enable and Start Service:**
+   ```bash
+   sudo systemctl enable http-server
+   sudo systemctl start http-server
+   ```
+
+3. **Check Service Status:**
+   ```bash
+   curl -X GET http://localhost:5000/health
+   ```
+
+## **8. Auto-Restart Services on Crash**
 ```bash
 cd /etc/systemd/system/
 sudo cp /lib/systemd/system/neo4j.service .
@@ -269,7 +327,7 @@ redis-cli ping
 curl -X GET http://localhost:8080/health
 ```
 
-## **8. Secure the Server**
+## **9. Secure the Server**
 ### **Step 1: Disable Root SSH Login**
 ```bash
 sudo nano /etc/ssh/sshd_config
@@ -320,7 +378,7 @@ sudo iptables -L  # Verify rules
 
 ---
 
-## **9. Make Redis Persistent**
+## **10. Make Redis Persistent**
 ```bash
 echo "save 900 1" | sudo tee -a /etc/redis-stack.conf
 sudo systemctl restart redis-stack-server
@@ -328,7 +386,7 @@ sudo systemctl restart redis-stack-server
 
 ---
 
-## **10. Verify Setup**
+## **11. Verify Setup**
 - **Check Running Processes**
   ```bash
   top
@@ -340,6 +398,6 @@ sudo systemctl restart redis-stack-server
 
 ---
 
-## **11. Manage your Setup**
+## **12. Manage your Setup**
 
 For detailed commands and instructions on managing your services—including handling processes on both Debian and Windows—please refer to [MANAGE.md](docs/MANAGE.md). This document covers system-specific commands, troubleshooting tips, and best practices for maintaining your RAG AI Assistant setup.

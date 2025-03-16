@@ -139,8 +139,8 @@ fi
 echo "Setting up Python environment for model conversion..."
 cd $HOME
 mkdir models
-python3 -m venv ~/llama-cpp-venv
-source ~/llama-cpp-venv/bin/activate
+python3 -m venv ~/venv
+source ~/venv/bin/activate
 python -m pip install --upgrade pip wheel setuptools
 python -m pip install --upgrade -r $HOME/llama.cpp/requirements/requirements-convert_hf_to_gguf.txt
 
@@ -167,7 +167,7 @@ ExecStart=/usr/local/bin/llama-server -m \$HOME/models/SmolLM2.q8.gguf --host 0.
 Restart=on-abnormal
 RestartSec=3
 User=$USER
-WorkingDirectory=\$HOME
+WorkingDirectory=$HOME
 StandardOutput=syslog
 StandardError=syslog
 SyslogIdentifier=llama-server
@@ -187,6 +187,61 @@ else
     echo "❌ Error: llama-server health check failed."
     exit 1
 fi
+
+# ----------------------------------------
+# 6. Download and Configure http-server.py
+# ----------------------------------------
+echo "Downloading http-server.py..."
+mkdir http-server
+cd http-server
+curl -o http-server.py https://raw.githubusercontent.com/rajatasusual/wsl-assistant/refs/heads/master/scripts/http-server.py
+chmod +x http-server.py
+cd $HOME
+source ~/venv/bin/activate
+echo "Installing Flask..."
+pip install Flask
+deactivate
+
+if [[ "$VIRT" != "wsl" ]]; then
+    nohup $HOME/venv/bin/python $HOME/http-server/http-server.py > http-server.log 2>&1 &
+else 
+    # ----------------------------------------
+    # 5. Create systemd service for http-server
+    # ----------------------------------------
+    echo "Creating systemd service for http-server..."
+    sudo tee /etc/systemd/system/http-server.service > /dev/null <<EOF
+[Unit]
+Description=http-server Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=$HOME/venv/bin/python $HOME/http-server/http-server.py
+Restart=on-abnormal
+RestartSec=3
+User=$USER
+WorkingDirectory=$HOME/http-server
+Environment=PYTHONUNBUFFERED=1
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=http-server
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    sudo systemctl daemon-reload
+    sudo systemctl enable http-server
+    sudo systemctl start http-server
+fi  
+    
+sleep 5
+if curl -s -X GET http://localhost:5000/health | grep -q '"status":"ok"'; then
+    echo "✅ http-server is healthy."
+else
+    echo "❌ Error: http-server health check failed."
+    exit 1
+fi
+
 
 if [[ "$VIRT" == "wsl" ]]; then
     # ----------------------------------------

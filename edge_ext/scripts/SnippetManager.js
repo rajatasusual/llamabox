@@ -42,11 +42,8 @@ class SnippetManager {
 const snippetManager = new SnippetManager();
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.toggleListener) {
-        snippetManager.toggleListener(message.toggleListener);
-        sendResponse({ status: 'done' });
-    } else if (!message.toggleListener) {
-        snippetManager.toggleListener(false);
+    if (message.toggleListener !== undefined) {
+        snippetManager.toggleListener(!!message.toggleListener);
         sendResponse({ status: 'done' });
     }
     if (message.refreshActive){

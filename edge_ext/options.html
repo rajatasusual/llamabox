@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -66,16 +67,36 @@
         button:hover {
             background-color: var(--hover-color);
         }
+
+        button:disabled {
+            background-color: #e9ecef;
+            cursor: not-allowed;
+        }
+
+        .spinner {
+            display: none;
+            width: 1rem;
+            height: 1rem;
+            border-radius: 50%;
+            border: 2px solid var(--primary-color);
+            border-top-color: transparent;
+            animation: spin 0.6s linear infinite;
+        }
     </style>
 </head>
+
 <body>
-    <h2>Extension Settings</h2>
-    <div class="form-group">
-        <label for="hostIp">WSL Server IP</label>
-        <input type="text" id="hostIp" placeholder="e.g., 192.168.1.29">
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem">
+        <img src="images/icon.png" alt="Extension Icon" style="width:32px;height:32px">
+        <h2 style="margin:0">Extension Settings</h2>
     </div>
-    <button id="save">Save Settings</button>
+    <div class="form-group" style="max-width:400px">
+        <label for="hostIp">WSL Server IP</label>
+        <input required pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$" type="text" id="hostIp" placeholder="192.168.1.1" />
+    </div>
+    <button id="save" disabled style="max-width:400px">Save Settings</button>
     <script src="scripts/common.js"></script>
     <script src="scripts/options.js"></script>
 </body>
+
 </html>

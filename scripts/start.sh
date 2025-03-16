@@ -44,8 +44,24 @@ else
     fi
 fi
 
+# --- embed-server ---
+echo "[4/5] Starting embed-server..."
+# Check if embed-server is already running
+if curl -s -X GET http://localhost:8000/health | grep -q '"status":"ok"'; then
+    echo "✅ embed-server is already running."
+else
+    # Launch embed-server in the background. Adjust the model path if needed.
+    llama-server --embedding --port 8000 -ngl 99 -m $HOME/models/nomic-embed-text-v1.5.Q2_K.gguf -c 8192 -b 8192 --rope-scaling yarn --rope-freq-scale .75 &
+    sleep 2
+    if pgrep -x "llama-server" > /dev/null; then
+        echo "✅ llama-server started successfully."
+    else
+        echo "❌ Error: llama-server failed to start."
+    fi
+fi
+
 # --- http-server ---
-echo "[4/4] Starting http-server..."
+echo "[5/5] Starting http-server..."
 # Check if http-server is already running
 if curl -s -X GET http://localhost:5000/health | grep -q '"status":"ok"'; then
     echo "✅ http-server is already running."

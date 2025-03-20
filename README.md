@@ -70,6 +70,7 @@ Most AI frameworks are built for **high-end GPUs**, making them **unusable on ol
 | **Fail2Ban & UFW** | Security hardening against brute-force attacks |
 | **Systemd Auto-Restart** | Ensures services are resilient to crashes |
 | **Local HTTP Server** | Syncs captured pages/snippets from the browser extension |
+| **Redis Queue (RQ)** | Asynchronous task handling for creating embeddings and storing them in Redis |
 
 ---
 
@@ -215,8 +216,6 @@ Shout-out to:
 - **The WSL Community** for making Linux on Windows seamless  
 
 ---
-
-## **14. Browser Extension**
 
 ## **14. Browser Extension**
 

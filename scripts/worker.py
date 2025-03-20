@@ -25,12 +25,15 @@ schema = (
     })
 )
 
-redis_conn.ft("vector_idx").create_index(
-    schema,
-    definition=IndexDefinition(
-        prefix=["doc:"], index_type=IndexType.HASH
+try:
+    redis_conn.ft("vector_idx").create_index(
+        schema,
+        definition=IndexDefinition(
+            prefix=["doc:"], index_type=IndexType.HASH
+        )
     )
-)
+except:
+    print("Index 'vector_idx' already exists, continuing...")
 
 def process_snippet(data, timestamp):
     """Processes the snippet data: gets embeddings and stores them."""
@@ -69,7 +72,7 @@ def process_snippet(data, timestamp):
                 redis_conn.hset(f"doc:{item['id']}", mapping=item)
                 # Add to the vector index
                 redis_conn.hset(f"doc:{item['id']}", "embedding", bytes(str(item["embedding"]), 'utf-8'))
-                print(f"[{item["id"]}] Added document with UUID: {item['id']}")
+                print(f"Added document with UUID: {item['id']}")
             # Save to a local JSON file (or replace with database storage)
             with open(VECTOR_STORE, "a") as f:
                 json.dump({"timestamp": timestamp, "data": processed_data}, f)

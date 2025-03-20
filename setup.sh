@@ -237,30 +237,83 @@ fi
 
 sleep 5
 if curl -s -X GET http://localhost:8000/health | grep -q '"status":"ok"'; then
-    echo "✅ llama-server is healthy."
+    echo "✅ embed-server is healthy."
 else
-    echo "❌ Error: llama-server health check failed."
+    echo "❌ Error: embed-server health check failed."
     exit 1
 fi
+
 # ----------------------------------------
-# 6. Download and Configure http-server.py
+# 6. Download and Configure redis worker worker.py
+# ----------------------------------------
+echo "Downloading redis worker worker.py..."
+cd $HOME
+mkdir http-server
+cd http-server
+curl -o worker.py https://raw.githubusercontent.com/rajatasusual/wsl-assistant/refs/heads/master/scripts/worker.py
+chmod +x worker.py
+cd $HOME
+source ~/venv/bin/activate
+echo "Installing Flask, rq, redis and requests..."
+pip install rq redis flask requests
+deactivate
+
+if [[ "$VIRT" != "wsl" ]]; then
+    nohup $HOME/venv/bin/rq worker -u redis://localhost:6379 snippet_queue > worker.log 2>&1 &
+else 
+    # ----------------------------------------
+    # 7. Create systemd service for http-server
+    # ----------------------------------------
+    echo "Creating systemd service for redis worker..."
+    sudo tee /etc/systemd/system/worker.service > /dev/null <<EOF
+[Unit]
+Description=RQ Worker Service
+After=network.target redis.service
+
+[Service]
+Type=simple
+User=box
+Environment=/home/box/http-server
+ExecStart=/home/box/venv/bin/rq worker -u redis://localhost:6379 snippet_queue
+Restart=on-abnormal
+RestartSec=3s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    sudo systemctl daemon-reload
+    sudo systemctl enable worker
+    sudo systemctl start worker
+fi  
+    
+sleep 5
+# Check if the worker is running
+$HOME/venv/bin/rq info --url redis://localhost:6379
+if $HOME/venv/bin/rq info --url redis://localhost:6379 | grep -q "snippet_queue"; then
+    echo "✅ Redis worker is healthy."
+else
+    echo "❌ Error: Redis worker health check failed."
+    exit 1
+fi
+
+# ----------------------------------------
+# 8. Download and Configure http-server.py
 # ----------------------------------------
 echo "Downloading http-server.py..."
-mkdir http-server
 cd http-server
 curl -o http-server.py https://raw.githubusercontent.com/rajatasusual/wsl-assistant/refs/heads/master/scripts/http-server.py
 chmod +x http-server.py
 cd $HOME
 source ~/venv/bin/activate
 echo "Installing Flask..."
-pip install Flask
+pip install flask
 deactivate
 
 if [[ "$VIRT" != "wsl" ]]; then
     nohup $HOME/venv/bin/python $HOME/http-server/http-server.py > http-server.log 2>&1 &
 else 
     # ----------------------------------------
-    # 7. Create systemd service for http-server
+    # 9. Create systemd service for http-server
     # ----------------------------------------
     echo "Creating systemd service for http-server..."
     sudo tee /etc/systemd/system/http-server.service > /dev/null <<EOF
@@ -295,57 +348,6 @@ else
     echo "❌ Error: http-server health check failed."
     exit 1
 fi
-
-# ----------------------------------------
-# 8. Download and Configure redis worker worker.py
-# ----------------------------------------
-echo "Downloading redis worker worker.py..."
-cd $HOME
-cd http-server
-curl -o worker.py https://raw.githubusercontent.com/rajatasusual/wsl-assistant/refs/heads/master/scripts/worker.py
-chmod +x worker.py
-cd $HOME
-source ~/venv/bin/activate
-echo "Installing Flask, rq, redis and requests..."
-pip install rq redis flask requests
-deactivate
-
-if [[ "$VIRT" != "wsl" ]]; then
-    nohup $HOME/venv/bin/python $HOME/http-server/worker.py > worker.log 2>&1 &
-else 
-    # ----------------------------------------
-    # 9. Create systemd service for http-server
-    # ----------------------------------------
-    echo "Creating systemd service for redis worker..."
-    sudo tee /etc/systemd/system/worker.service > /dev/null <<EOF
-[Unit]
-Description=RQ Worker Service
-After=network.target redis.service
-
-[Service]
-Type=simple
-User=box
-Environment=/home/box/http-server
-ExecStart=/home/box/venv/bin/rq worker -u redis://localhost:6379 snippet_queue
-Restart=on-abnormal
-RestartSec=3s
-
-[Install]
-WantedBy=multi-user.target
-EOF
-    sudo systemctl daemon-reload
-    sudo systemctl enable worker
-    sudo systemctl start worker
-fi  
-    
-sleep 5
-if $HOME/venv/bin/rq info --url redis://localhost:6379 | grep -q "snippet_queue"; then
-    echo "✅ Redis worker is healthy."
-else
-    echo "❌ Error: Redis worker health check failed."
-    exit 1
-fi
-
 
 if [[ "$VIRT" == "wsl" ]]; then
     # ----------------------------------------

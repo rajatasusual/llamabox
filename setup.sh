@@ -259,7 +259,7 @@ pip install rq redis flask requests
 deactivate
 
 if [[ "$VIRT" != "wsl" ]]; then
-    nohup $HOME/venv/bin/python $HOME/http-server/worker.py > worker.log 2>&1 &
+    nohup $HOME/venv/bin/rq worker -u redis://localhost:6379 snippet_queue > worker.log 2>&1 &
 else 
     # ----------------------------------------
     # 7. Create systemd service for http-server

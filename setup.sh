@@ -287,6 +287,8 @@ EOF
 fi  
     
 sleep 5
+# Check if the worker is running
+$HOME/venv/bin/rq info --url redis://localhost:6379
 if $HOME/venv/bin/rq info --url redis://localhost:6379 | grep -q "snippet_queue"; then
     echo "✅ Redis worker is healthy."
 else

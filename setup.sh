@@ -296,17 +296,67 @@ else
     exit 1
 fi
 
+# ----------------------------------------
+# 8. Download and Configure redis worker worker.py
+# ----------------------------------------
+echo "Downloading redis worker worker.py..."
+cd $HOME
+cd http-server
+curl -o worker.py https://raw.githubusercontent.com/rajatasusual/wsl-assistant/refs/heads/master/scripts/worker.py
+chmod +x worker.py
+cd $HOME
+source ~/venv/bin/activate
+echo "Installing Flask, rq, redis and requests..."
+pip install rq redis flask requests
+deactivate
+
+if [[ "$VIRT" != "wsl" ]]; then
+    nohup $HOME/venv/bin/python $HOME/http-server/worker.py > worker.log 2>&1 &
+else 
+    # ----------------------------------------
+    # 9. Create systemd service for http-server
+    # ----------------------------------------
+    echo "Creating systemd service for redis worker..."
+    sudo tee /etc/systemd/system/worker.service > /dev/null <<EOF
+[Unit]
+Description=RQ Worker Service
+After=network.target redis.service
+
+[Service]
+Type=simple
+User=box
+Environment=/home/box/http-server
+ExecStart=/home/box/venv/bin/rq worker -u redis://localhost:6379 snippet_queue
+Restart=on-abnormal
+RestartSec=3s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    sudo systemctl daemon-reload
+    sudo systemctl enable worker
+    sudo systemctl start worker
+fi  
+    
+sleep 5
+if $HOME/venv/bin/rq info --url redis://localhost:6379 | grep -q "snippet_queue"; then
+    echo "✅ Redis worker is healthy."
+else
+    echo "❌ Error: Redis worker health check failed."
+    exit 1
+fi
+
 
 if [[ "$VIRT" == "wsl" ]]; then
     # ----------------------------------------
-    # 8. Configure Auto-Restart for Redis and Neo4j
+    # 10. Configure Auto-Restart for Redis and Neo4j
     # ----------------------------------------
     echo "Configuring auto-restart for Redis and Neo4j..."
     sudo sed -i '/^\[Service\]/a Restart=on-abnormal\nRestartSec=5' /lib/systemd/system/neo4j.service
     sudo sed -i '/^\[Service\]/a Restart=on-abnormal\nRestartSec=5' /lib/systemd/system/redis-stack-server.service
     sudo systemctl daemon-reload
     # ----------------------------------------
-    # 9. Secure the Server
+    # 11. Secure the Server
     # ----------------------------------------
     echo "Securing the server..."
     sudo apt purge -y unattended-upgrades
@@ -342,7 +392,7 @@ EOF
 fi
 
 # ----------------------------------------
-# 10. Finalize Setup
+# 12. Finalize Setup
 # ----------------------------------------
 echo "===================================="
 echo "Setup complete. Please verify all services are running."

@@ -24,11 +24,12 @@ Prerequisites:
 6. [Install llama.cpp and AI Models](#6-install-llamacpp-and-ai-models)
 7. [Install Embedding Model](#7-install-embedding-model)
 8. [Create HTTP Server Service](#8-create-http-server-service)
-9. [Auto-Restart Services on Crash](#9-auto-restart-services-on-crash)
-10. [Secure the Server](#10-secure-the-server)
-11. [Make Redis Persistent](#11-make-redis-persistent)
-12. [Verify Setup](#12-verify-setup)
-13. [Manage your setup](#13-manage-your-setup)
+9. [Configure Redis Queue Worker](#9-configure-redis-queue-worker)
+10. [Auto-Restart Services on Crash](#10-auto-restart-services-on-crash)
+11. [Secure the Server](#11-secure-the-server)
+12. [Make Redis Persistent](#12-make-redis-persistent)
+13. [Verify Setup](#13-verify-setup)
+14. [Manage your setup](#14-manage-your-setup)
 
 
 ## **1. Configure WSL**
@@ -355,7 +356,56 @@ WantedBy=multi-user.target
    curl -X GET http://localhost:5000/health
    ```
 
-## **9. Auto-Restart Services on Crash**
+## **9. Configure Redis Queue Worker**
+
+### **Download and Setup Worker**
+```bash
+# Set up worker script
+cd $HOME/http-server
+curl -o worker.py https://raw.githubusercontent.com/rajatasusual/wsl-assistant/refs/heads/master/scripts/worker.py
+chmod +x worker.py
+cd $HOME
+
+# Install dependencies
+source ~/venv/bin/activate
+pip install rq redis flask requests
+deactivate
+```
+
+### **Create Worker Service**
+Create file at `/etc/systemd/system/worker.service`:
+```ini
+[Unit]
+Description=RQ Worker Service
+After=network.target redis.service
+
+[Service]
+Type=simple
+ExecStart=$HOME/venv/bin/rq worker -u redis://localhost:6379 snippet_queue
+Restart=on-abnormal
+RestartSec=3
+User=$USER
+WorkingDirectory=$HOME/http-server
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=redis-worker
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### **Enable and Test Service**
+```bash
+# Enable and start service
+sudo systemctl daemon-reload
+sudo systemctl enable worker
+sudo systemctl start worker
+
+# Test worker health
+$HOME/venv/bin/rq info --url redis://localhost:6379
+```
+
+## **10. Auto-Restart Services on Crash**
 ```bash
 cd /etc/systemd/system/
 sudo cp /lib/systemd/system/neo4j.service .
@@ -379,7 +429,7 @@ redis-cli ping
 curl -X GET http://localhost:8080/health
 ```
 
-## **10. Secure the Server**
+## **11. Secure the Server**
 ### **Step 1: Disable Root SSH Login**
 ```bash
 sudo nano /etc/ssh/sshd_config
@@ -438,7 +488,7 @@ sudo iptables -L  # Verify rules
 
 ---
 
-## **11. Make Redis Persistent**
+## **12. Make Redis Persistent**
 ```bash
 echo "save 900 1" | sudo tee -a /etc/redis-stack.conf
 sudo systemctl restart redis-stack-server
@@ -446,7 +496,7 @@ sudo systemctl restart redis-stack-server
 
 ---
 
-## **12. Verify Setup**
+## **13. Verify Setup**
 - **Check Running Processes**
   ```bash
   top
@@ -458,6 +508,6 @@ sudo systemctl restart redis-stack-server
 
 ---
 
-## **13. Manage your Setup**
+## **14. Manage your Setup**
 
 For detailed commands and instructions on managing your services—including handling processes on both Debian and Windows—please refer to [MANAGE.md](docs/MANAGE.md). This document covers system-specific commands, troubleshooting tips, and best practices for maintaining your RAG AI Assistant setup.

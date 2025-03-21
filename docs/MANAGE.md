@@ -53,10 +53,6 @@ journalctl -xe                      # View system logs
 ## 12. Windows PowerShell Commands for WSL2
 
 ```powershell
-(Get-ChildItem -Path HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss | 
- Where-Object { $_.GetValue("DistributionName") -eq 'Debian' }).GetValue("BasePath") + "\ext4.vhdx" 
-# Get .vhdx file and disk path
-
 # Test network connectivity to WSL services
 Test-NetConnection WSL_IP -p 6379   # Redis
 Test-NetConnection WSL_IP -p 7474   # Neo4j

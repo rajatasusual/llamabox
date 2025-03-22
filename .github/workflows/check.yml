@@ -20,10 +20,12 @@ jobs:
           docker run --name deb-box -d -it debian:bookworm bash
           docker exec deb-box apt update && docker exec deb-box apt install -y sudo curl
 
-      - name: Copy setup.sh into Container
+      - name: Copy scripts into Container
         run: |
           docker cp setup.sh deb-box:/setup.sh
           docker exec deb-box chmod +x /setup.sh
+          docker cp box.sh deb-box:/box.sh
+          docker exec deb-box chmod +x /box.sh
 
       - name: Run setup.sh
         run: |

@@ -7,13 +7,13 @@ Here's a **high-level breakdown** of the setup process, categorized by component
 ## **🛠 1. System Setup (WSL & Debian)**  
 ✅ Install **WSL2** and **Debian** on Windows  
 ✅ Allocate **at least 4GB RAM & 20GB storage**  
-✅ Clone the repository and run `scripts/setup.sh`  
+✅ Clone the repository and run `./setup.sh`  
 
 ```sh
 wsl --install -d Debian
 git clone https://github.com/rajatasusual/wsl-assistant.git
 cd wsl-assistant
-./scripts/setup.sh
+./setup.sh
 ```
 
 ---

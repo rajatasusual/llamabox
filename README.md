@@ -69,7 +69,7 @@ Most AI frameworks are built for **high-end GPUs**, making them **unusable on ol
 | **llama.cpp**   | Local AI inference engine (CPU-optimized) |
 | **Fail2Ban & UFW** | Security hardening against brute-force attacks |
 | **Systemd Auto-Restart** | Ensures services are resilient to crashes |
-| **Local HTTP Server** | Syncs captured pages/snippets from the browser extension |
+| **Local HTTP Server** | Syncs captured pages/snippets from the [browser extension](https://github.com/rajatasusual/llamabox_extension) |
 | **Redis Queue (RQ)** | Asynchronous task handling for creating embeddings and storing them in Redis |
 
 ---
@@ -79,7 +79,7 @@ Most AI frameworks are built for **high-end GPUs**, making them **unusable on ol
 - **Self-hosted AI assistant**: Use `llama.cpp` for **CPU-only inference**.  
 - **Privacy-first chatbots**: Avoid OpenAI/Google APIs—run everything **offline**.  
 - **Edge AI applications**: Ideal for **low-end devices** with limited compute.  
-- **Web Content Capture**: Use the browser extension to capture and sync web content.
+- **Web Content Capture**: Use the [browser extension](https://github.com/rajatasusual/llamabox_extension) to capture and sync web content.
 
 ---
 
@@ -219,7 +219,7 @@ Shout-out to:
 
 ## **14. Browser Extension**
 
-WSL Assistant includes a lightweight browser extension to capture web content for your AI-powered knowledge base:
+WSL Assistant can be used with a lightweight [browser extension](https://github.com/rajatasusual/llamabox_extension) to capture web content for your AI-powered knowledge base:
 
 ✅ **Quick Content Capture**:
 - Select text snippets from any webpage
@@ -236,4 +236,4 @@ WSL Assistant includes a lightweight browser extension to capture web content fo
 ✅ **Installation**:
 Load as an unpacked extension in Chrome/Edge and configure your WSL host IP.
 
-For detailed setup instructions and documentation, see [edge_ext/README.md](edge_ext/README.md).
+For detailed setup instructions and documentation, see [README.md](https://github.com/rajatasusual/llamabox_extension/blob/master/README.md).

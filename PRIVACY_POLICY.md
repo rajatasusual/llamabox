@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Welcome to the WSL Assistant project. This privacy policy outlines how we handle your data when you use our software, including the WSL Assistant application, browser extension, and associated services.
+Welcome to the WSL Assistant project. This privacy policy outlines how we handle your data when you use our software, including the WSL Assistant application, [browser extension](https://github.com/rajatasusual/llamabox_extension), and associated services.
 
 ## Data Collection
 
@@ -14,7 +14,7 @@ All data captured by the WSL Assistant, including snippets and full-page content
 
 ### Local HTTP Server
 
-The local HTTP server is offered to be used to sync captured pages and snippets from the browser extension. Data is stored in a folder named `data` with filenames in the format `{page/snippet}_timestamp.json`.
+The local HTTP server is offered to be used to sync captured pages and snippets from the [browser extension](https://github.com/rajatasusual/llamabox_extension). Data is stored in a folder named `data` with filenames in the format `{page/snippet}_timestamp.json`.
 
 ### Redis Queue (RQ)
 
@@ -46,7 +46,7 @@ We implement several security measures to protect your data:
 
 ### Browser Extension
 
-The browser extension allows you to capture and sync web content. You can configure the local server IP via the options page. Data synchronization is performed periodically using Chrome alarms.
+The [Llamabox browser extension](https://github.com/rajatasusual/llamabox_extension) allows you to capture and sync web content. You can configure the local server IP via the options page. Data synchronization is performed periodically using Chrome alarms.
 
 ### Data Deletion
 

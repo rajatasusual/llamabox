@@ -32,7 +32,6 @@ box download_file "https://packages.redis.io/gpg" "/tmp/redis.gpg"
 sudo gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg < /tmp/redis.gpg
 sudo chmod 644 /usr/share/keyrings/redis-archive-keyring.gpg
 echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb jammy main" | sudo tee /etc/apt/sources.list.d/redis.list
-sudo apt update
 box install_package redis-stack-server
 
 if [[ "$VIRT" != "wsl" ]]; then
@@ -62,7 +61,6 @@ box log_info "Installing Neo4j..."
 box download_file "https://debian.neo4j.com/neotechnology.gpg.key" "/tmp/neo4j.gpg.key"
 sudo gpg --dearmor -o /etc/apt/keyrings/neotechnology.gpg < /tmp/neo4j.gpg.key
 echo 'deb [signed-by=/etc/apt/keyrings/neotechnology.gpg] https://debian.neo4j.com stable latest' | sudo tee /etc/apt/sources.list.d/neo4j.list
-sudo apt-get update
 box install_package neo4j=1:2025.02.0
 
 box log_info "Setting initial password for Neo4j..."

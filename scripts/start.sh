@@ -1,8 +1,8 @@
 #!/bin/bash
-# start.sh - Start all core services for wsl-assistant
+# start.sh - Start all core services for llamabox
 
 echo "===================================="
-echo "Starting WSL Assistant services..."
+echo "Starting Llamabox services..."
 echo "===================================="
 
 # --- Redis Stack Server ---

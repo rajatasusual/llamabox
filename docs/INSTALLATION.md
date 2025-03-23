@@ -305,7 +305,7 @@ curl -X GET http://localhost:8000/health
 # Set up worker script
 mkdir http-server
 cd $HOME/http-server
-curl -o worker.py https://raw.githubusercontent.com/rajatasusual/wsl-assistant/refs/heads/master/scripts/worker.py
+curl -o worker.py https://raw.githubusercontent.com/rajatasusual/llamabox/refs/heads/master/scripts/worker.py
 chmod +x worker.py
 cd $HOME
 
@@ -353,7 +353,7 @@ $HOME/venv/bin/rq info --url redis://localhost:6379
 # Set up HTTP server by copying the flask server script from the repository
 mkdir http-server
 cd http-server
-curl -o http-server.py https://raw.githubusercontent.com/rajatasusual/wsl-assistant/refs/heads/master/http-server.py
+curl -o http-server.py https://raw.githubusercontent.com/rajatasusual/llamabox/refs/heads/master/http-server.py
 chmod +x http-server.py
 cd $HOME
 

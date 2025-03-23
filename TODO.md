@@ -1,6 +1,6 @@
-# WSL Assistant Roadmap
+# Llamabox Roadmap
 
-This roadmap outlines the planned features for WSL Assistant. While there are many exciting additions on the horizon, our immediate focus is on ensuring a robust, secure, and performant foundation.
+This roadmap outlines the planned features for Llamabox. While there are many exciting additions on the horizon, our immediate focus is on ensuring a robust, secure, and performant foundation.
 
 ---
 

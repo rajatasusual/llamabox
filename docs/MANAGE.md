@@ -48,6 +48,7 @@ systemctl status name_of_service    # Check service status
 systemctl list-units                # List all services
 systemctl --failed                  # Show failed services
 journalctl -xe                      # View system logs
+journalctl --unit=my.service -n 100 --no-pager # Show last 100 lines for a service
 ```
 
 ## 12. Windows PowerShell Commands for WSL2

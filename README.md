@@ -1,20 +1,20 @@
-# Llamabox - WSL Assistant <img src="assets/icon.png" width="32" height="32" style="vertical-align: middle"> 
+# Llamabox <img src="assets/icon.png" width="32" height="32" style="vertical-align: middle"> 
 
-[![Distro Health](https://github.com/rajatasusual/wsl-assistant/actions/workflows/check.yml/badge.svg?branch=master)](https://github.com/rajatasusual/wsl-assistant/actions/workflows/check.yml) ![WSL2](https://img.shields.io/badge/WSL2-Supported-blue) ![Debian](https://img.shields.io/badge/Debian-Supported-blue) ![License](https://img.shields.io/badge/License-MIT-green)  
+[![Distro Health](https://github.com/rajatasusual/llamabox/actions/workflows/check.yml/badge.svg?branch=master)](https://github.com/rajatasusual/llamabox/actions/workflows/check.yml) ![WSL2](https://img.shields.io/badge/WSL2-Supported-blue) ![Debian](https://img.shields.io/badge/Debian-Supported-blue) ![License](https://img.shields.io/badge/License-MIT-green)  
 
 *Run a fully integrated AI and database stack on your low-end, CPU-only Windows machine—secure, resilient, and privacy-focused.*  
 
 > **TL;DR:** Self-host AI on your low-end Windows PC using WSL2. Runs on CPU-only, needs just 1GB RAM. See [SUMMARY.md](docs/SUMMARY.md) for a quick overview.
 
-WSL Assistant brings **on-device AI** to **low-power systems** by leveraging WSL2 and Debian. Unlike traditional AI setups that require **power-hungry GPUs**, this project is built **for CPUs only**—allowing you to run **efficient local inference** and a **full RAG pipeline** on even modest hardware.  
+Llamabox brings **on-device AI** to **low-power systems** by leveraging WSL2 and Debian. Unlike traditional AI setups that require **power-hungry GPUs**, this project is built **for CPUs only**—allowing you to run **efficient local inference** and a **full RAG pipeline** on even modest hardware.  
 
-With WSL Assistant, you can **self-host AI assistants, chatbots, and knowledge graphs** without relying on external cloud APIs. The lightweight stack includes:  
+With Llamabox, you can **self-host AI assistants, chatbots, and knowledge graphs** without relying on external cloud APIs. The lightweight stack includes:  
 ✅ **llama.cpp** for blazing-fast **CPU inference**  
 ✅ **Redis Stack** for vector database storage  
 ✅ **Neo4j** for knowledge graphs  
 ✅ **Optimized for low-end Windows laptops & edge devices**  
 
-With a memory footprint as low as **1GB**, WSL Assistant lets you run **local AI inference and an entire RAG pipeline on a 10-year-old device!**  
+With a memory footprint as low as **1GB**, Llamabox lets you run **local AI inference and an entire RAG pipeline on a 10-year-old device!**  
 
 ![WSL2](https://img.shields.io/badge/WSL2-Supported-blue)  ![Debian](https://img.shields.io/badge/Debian-Supported-blue)  ![License](https://img.shields.io/badge/License-MIT-green)  
 
@@ -50,7 +50,7 @@ With a memory footprint as low as **1GB**, WSL Assistant lets you run **local AI
 ## **2. Overview**  
 
 ### **2.1 Why This Project Exists?**  
-Most AI frameworks are built for **high-end GPUs**, making them **unusable on older machines** or **low-power edge devices**. WSL Assistant solves this by providing:  
+Most AI frameworks are built for **high-end GPUs**, making them **unusable on older machines** or **low-power edge devices**. Llamabox solves this by providing:  
 - **A fully integrated CPU-based AI environment** for local inference.  
 - **A lightweight stack (only ~1GB RAM)** to run AI models without lag.  
 - **An optimized RAG pipeline** with Redis + Neo4j for AI-powered retrieval.  
@@ -122,8 +122,8 @@ Most AI frameworks are built for **high-end GPUs**, making them **unusable on ol
 wsl --install -d Debian
 
 # Clone this repo
-git clone https://github.com/rajatasusual/wsl-assistant.git
-cd wsl-assistant
+git clone https://github.com/rajatasusual/llamabox.git
+cd llamabox
 
 # Run setup script
 ./setup.sh
@@ -141,13 +141,13 @@ For **frequently seen issues**, see [FAQs.md](docs/FAQs.md).
 ./start.sh
 ```
 
-For troubleshooting, see logs in `/var/log/wsl-assistant/`.
+For troubleshooting, see logs in `/var/log/llamabox/`.
 
 ---
 
 ## **8. Performance Benchmarks**  
 
-WSL Assistant is optimized for **low-latency CPU-only inference**. Below is a benchmark of `llama 3B Q8_0` on a low-end WSL2 setup.  
+Llamabox is optimized for **low-latency CPU-only inference**. Below is a benchmark of `llama 3B Q8_0` on a low-end WSL2 setup.  
 
 ### **Test System Specs:**  
 📌 **RAM:** 4GB  
@@ -219,7 +219,7 @@ Shout-out to:
 
 ## **14. Browser Extension**
 
-WSL Assistant can be used with a lightweight [browser extension](https://github.com/rajatasusual/llamabox_extension) to capture web content for your AI-powered knowledge base:
+Llamabox can be used with a lightweight [browser extension](https://github.com/rajatasusual/llamabox_extension) to capture web content for your AI-powered knowledge base:
 
 ✅ **Quick Content Capture**:
 - Select text snippets from any webpage

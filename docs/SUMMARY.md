@@ -1,4 +1,4 @@
-### 🚀 **WSL Assistant - Setup Summary**  
+### 🚀 **Llamabox - Setup Summary**  
 
 Here's a **high-level breakdown** of the setup process, categorized by components:  
 
@@ -11,8 +11,8 @@ Here's a **high-level breakdown** of the setup process, categorized by component
 
 ```sh
 wsl --install -d Debian
-git clone https://github.com/rajatasusual/wsl-assistant.git
-cd wsl-assistant
+git clone https://github.com/rajatasusual/llamabox.git
+cd llamabox
 ./setup.sh
 ```
 

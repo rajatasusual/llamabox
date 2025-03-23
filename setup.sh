@@ -15,7 +15,7 @@ VENV_DIR="venv"
 # ---------------------------
 # Begin Setup
 # ---------------------------
-box print_header "Starting wsl-assistant setup..."
+box print_header "Starting llamabox setup..."
 box run_update
 
 # 1. Install Essential Packages
@@ -134,7 +134,7 @@ box check_health "http://localhost:8000/health" '"status":"ok"'
 box print_header "6. Setup Redis Worker"
 mkdir -p "$HTTP_DIR"
 cd "$HTTP_DIR"
-box download_file "https://raw.githubusercontent.com/rajatasusual/wsl-assistant/refs/heads/master/scripts/worker.py" "worker.py"
+box download_file "https://raw.githubusercontent.com/rajatasusual/llamabox/refs/heads/master/scripts/worker.py" "worker.py"
 chmod +x worker.py
 cd $HOME
 
@@ -159,7 +159,7 @@ fi
 # 7. Download and Configure http-server
 box print_header "7. Setup http-server"
 cd "$HTTP_DIR"
-box download_file "https://raw.githubusercontent.com/rajatasusual/wsl-assistant/refs/heads/master/scripts/http-server.py" "http-server.py"
+box download_file "https://raw.githubusercontent.com/rajatasusual/llamabox/refs/heads/master/scripts/http-server.py" "http-server.py"
 chmod +x http-server.py
 cd $HOME
 # Install Flask (if not already installed in our venv, our box setup_venv already handled it)

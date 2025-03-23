@@ -2,13 +2,13 @@
 
 ## Introduction
 
-Welcome to the WSL Assistant project. This privacy policy outlines how we handle your data when you use our software, including the WSL Assistant application, [browser extension](https://github.com/rajatasusual/llamabox_extension), and associated services.
+Welcome to the Llamabox project. This privacy policy outlines how we handle your data when you use our software, including the Llamabox application, [browser extension](https://github.com/rajatasusual/llamabox_extension), and associated services.
 
 ## Data Collection
 
 ### Local Data Storage
 
-All data captured by the WSL Assistant, including snippets and full-page content, is stored locally on your machine. This includes:
+All data captured by the Llamabox, including snippets and full-page content, is stored locally on your machine. This includes:
 - **Snippets:** Text selected and saved from webpages.
 - **Full Page Content:** Main content extracted from articles using Mozilla's Readability.
 
@@ -28,7 +28,7 @@ Captured snippets are processed to create embeddings using the Llama-cpp server.
 
 ### Redis Storage
 
-Processed data, including embeddings and metadata, is stored in Redis. This data is used to power the AI-powered RAG pipeline and other features of the WSL Assistant.
+Processed data, including embeddings and metadata, is stored in Redis. This data is used to power the AI-powered RAG pipeline and other features of the Llamabox.
 
 ## Data Security
 
@@ -54,7 +54,7 @@ You have full control over your data. You can delete captured snippets and full-
 
 ## Changes to This Policy
 
-We may update this privacy policy from time to time. Any changes will be posted on this page, and we will notify you of significant changes through the WSL Assistant application or browser extension.
+We may update this privacy policy from time to time. Any changes will be posted on this page, and we will notify you of significant changes through the Llamabox application or browser extension.
 
 ## Contact Us
 

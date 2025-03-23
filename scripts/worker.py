@@ -1,9 +1,10 @@
+import numpy as np  # Import numpy to handle the conversion
 from redis import Redis
 from redis.commands.search.query import Query
 from redis.commands.search.field import TextField, TagField, VectorField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 import requests
-import uuid 
+import uuid
 import json
 import os
 
@@ -13,15 +14,16 @@ REDIS_HOST = "localhost"
 REDIS_PORT = 6379
 VECTOR_STORE = "vectors.json"  # Local storage for embeddings (replace with DB if needed)
 
-# Redis connection
-redis_conn = Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+# Redis connection (set decode_responses=False to handle binary data properly)
+redis_conn = Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=False)
+
 schema = (
     TextField("content"),
     TagField("genre"),
     VectorField("embedding", "HNSW", {
         "TYPE": "FLOAT32",
         "DIM": 384,
-        "DISTANCE_METRIC":"L2"
+        "DISTANCE_METRIC": "L2"
     })
 )
 
@@ -32,15 +34,15 @@ try:
             prefix=["doc:"], index_type=IndexType.HASH
         )
     )
-except:
-    print("Index 'vector_idx' already exists, continuing...")
+except Exception as e:
+    print("Index 'vector_idx' already exists or error encountered:", e)
 
 def process_snippet(data, timestamp):
     """Processes the snippet data: gets embeddings and stores them."""
     try:
         # Extract snippets from the input JSON array
         snippets = [item["snippet"] for item in data if "snippet" in item and item["snippet"].strip()]
-        
+
         if not snippets:
             print(f"[{timestamp}] No valid snippets found. Skipping processing.")
             return
@@ -49,12 +51,13 @@ def process_snippet(data, timestamp):
         response = requests.post(EMBEDDING_SERVER, json={"content": snippets})
 
         if response.status_code == 200:
+            # Assuming response.json() returns a list of dicts with key 'embedding'
             embeddings = [item['embedding'][0] for item in response.json()]
             if len(embeddings) != len(snippets):
                 print(f"[{timestamp}] Warning: Mismatch between snippets and embeddings count!")
                 return
 
-            # Store embeddings along with metadata
+            # Process and store embeddings along with metadata
             processed_data = [
                 {
                     **{k: item[k] for k in ['date', 'title', 'url'] if k in item},
@@ -64,16 +67,26 @@ def process_snippet(data, timestamp):
                 for item, embedding in zip(data, embeddings)
             ]
 
-            # Store in Redis
             for item in processed_data:
                 # Generate a unique ID for each document
-                item["id"] = str(uuid.uuid4())
-                # Store the item in Redis
-                redis_conn.hset(f"doc:{item['id']}", mapping=item)
-                # Add to the vector index
-                redis_conn.hset(f"doc:{item['id']}", "embedding", bytes(str(item["embedding"]), 'utf-8'))
-                print(f"Added document with UUID: {item['id']}")
-            # Save to a local JSON file (or replace with database storage)
+                doc_id = str(uuid.uuid4())
+                item["id"] = doc_id
+
+                # Convert the embedding (a list) into bytes
+                embedding_bytes = np.array(item["embedding"], dtype=np.float32).tobytes()
+
+                # Remove the embedding from the mapping since we'll set it separately
+                mapping = {k: v for k, v in item.items() if k != "embedding"}
+                # Store the rest of the fields as strings
+                mapping = {k: str(v) for k, v in mapping.items()}
+
+                # Store the document in Redis
+                redis_conn.hset(f"doc:{doc_id}", mapping=mapping)
+                # Store the embedding bytes
+                redis_conn.hset(f"doc:{doc_id}", "embedding", embedding_bytes)
+                print(f"Added document with UUID: {doc_id}")
+
+            # Optionally save to a local JSON file (for backup or audit)
             with open(VECTOR_STORE, "a") as f:
                 json.dump({"timestamp": timestamp, "data": processed_data}, f)
                 f.write("\n")

@@ -76,14 +76,14 @@ sudo systemctl enable redis neo4j
 
 ## **🚀 5. Running the Full Stack**  
 
-To start everything in one go:  
+To check everything in one go:  
 
 ```sh
-./scripts/start.sh
+./scripts/check.sh
 ```
 
 This will:  
-✅ Start **Redis**, **Neo4j**, and **llama-server** in order  
+✅ Start **Redis**, **Neo4j**, **llama-server**, **embed-server** , **redis worker**, **http-server** in order
 ✅ Ensure **services restart** if they crash  
 ✅ Enable **network access** from Windows  
 

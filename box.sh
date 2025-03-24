@@ -12,7 +12,6 @@ VENV_DIR="venv"
 # ---------------------------
 VIRT=$(systemd-detect-virt 2>/dev/null || echo "none")
 if [[ "$VIRT" == "wsl" ]]; then
-    echo "[INFO] Running in WSL environment (systemd mode)."
     # ---------------------------
     # Sudo/Root Check
     # ---------------------------
@@ -25,9 +24,6 @@ if [[ "$VIRT" == "wsl" ]]; then
             exit 1
         fi
     fi
-
-else
-    echo "[INFO] Running in non-WSL environment (non-systemd mode)."
 fi
 
 # ---------------------------
@@ -107,14 +103,30 @@ EOF
     fi
 }
 
-check_health() {
-    local url="$1"
-    local expected="$2"
-    sleep 1
-    if curl -s -X GET "$url" | grep -q "$expected"; then
-        echo "✅ Health check passed for $url"
+restart_service() {
+    local service_name="$1"
+    log_info "Restarting $service_name..."
+    if [[ "$VIRT" != "wsl" ]]; then
+        sudo systemctl restart "$service_name"
     else
-        echo "❌ Error: Health check failed for $url"
+        pkill -f "$service_name"
+        nohup "$service_name" > "${service_name}.log" 2>&1 &
+    fi
+}
+
+check_health() {
+    local common_name="$1"
+    local url="$2"
+    local expected="$3"
+    local restart="$4"
+    local service_name="$5"
+    if curl -s -X GET "$url" | grep -q "$expected"; then
+        echo "✅ Health check passed for $common_name"
+    else
+        echo "❌ Error: Health check failed for $common_name"
+        if [[ "$restart" == "true" ]]; then
+            restart_service "$service_name"
+        fi
         exit 1
     fi
 }

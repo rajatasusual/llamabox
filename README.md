@@ -134,11 +134,11 @@ For **frequently seen issues**, see [FAQs.md](docs/FAQs.md).
 
 ---
 
-## **7. Start the Services**  
+## **7. Check the Services**  
 
 ```bash
-# Start all required services
-./start.sh
+# Check all required services and restart if needed
+./scripts/check.sh
 ```
 
 For troubleshooting, see logs in `/var/log/llamabox/`.

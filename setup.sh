@@ -190,6 +190,7 @@ if [[ "$VIRT" == "wsl" ]]; then
     sudo ufw allow ssh
     sudo ufw allow 6379/tcp    # Redis
     sudo ufw allow 7474/tcp    # Neo4j
+    sudo ufw allow 7687/tcp    # Neo4j
     sudo ufw allow 8080/tcp    # llama.cpp
     sudo ufw allow 8000/tcp    # embed-server
     sudo ufw allow 5000/tcp    # http-server

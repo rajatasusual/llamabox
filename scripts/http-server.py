@@ -4,7 +4,7 @@ from rq import Queue
 import json
 import os
 from datetime import datetime
-from worker import process_snippet  # Import the function for processing
+from worker import embed_snippet  # Import the function for processing
 
 app = Flask(__name__)
 data_folder = './data'
@@ -24,9 +24,9 @@ def snippet():
     filename = os.path.join(data_folder, f'snippet_{timestamp}.json')
     with open(filename, 'w') as f:
         json.dump(data, f)
-    
+
     # Enqueue the task for processing
-    job = queue.enqueue(process_snippet, data, timestamp)
+    job = queue.enqueue(embed_snippet, data, timestamp)
     print(f"Queued job {job.id} for processing.")
 
     return jsonify({"message": "Snippet data received", "job_id": job.id}), 202

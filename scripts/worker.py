@@ -6,6 +6,7 @@ from rq import Queue
 
 from neo4j import GraphDatabase
 
+import re
 import requests
 import uuid
 import json
@@ -115,6 +116,9 @@ def embed_snippet(data, timestamp, test=False):
 
     except Exception as e:
         print(f"[{timestamp}] Error processing snippet: {e}")
+        if test:
+            # throw an exception to indicate failure
+            raise Exception(f"Failed to process snippet data: {e}")
     finally:
         redis_conn.close()
         print("Redis connection closed.")
@@ -141,8 +145,9 @@ def extract_snippet(task_payload, test=False):
 
         relations, named_entities = extract_information(snippet)
 
-        print(f"Extracted relations: {relations}")
-        print(f"Named entities: {named_entities}")
+        # print total keys in relations and named_entities
+        print(f"Total relations: {len(relations)}")
+        print(f"Total named_entities: {len(named_entities)}")
 
         relations_dict = {f"{s}||{r}||{o}": float(c) for (s, r, o), c in relations.items()}
         named_entities_list = {k: list(v) if isinstance(v, set) else v for k, v in named_entities.items()}
@@ -155,7 +160,7 @@ def extract_snippet(task_payload, test=False):
         if not test:
             save_to_local_file(ENTITY_STORE, {"doc_id": doc_id, "relations": relations_dict, "named_entities": named_entities_list})
 
-        print(f"Extraction completed for document {doc_id}: {relations}")
+        print(f"Extraction completed for document {doc_id}")
         
         if test:
             return doc_id
@@ -166,6 +171,9 @@ def extract_snippet(task_payload, test=False):
     
     except Exception as e:
         print(f"Error extracting information on line {e.__traceback__.tb_lineno}: {e}")
+        if test:
+            # throw an exception to indicate failure
+            raise Exception(f"Failed to extract information for doc ID: {doc_id}")
     finally:
         redis_conn.close()
         print("Redis connection closed.")
@@ -174,6 +182,7 @@ def load_snippet(task_payload, test=False):
     """Loads a snippet into Neo4j by retrieving entities and relations from Redis, then inserting them into the graph database."""
     try:
         doc_id = task_payload.get("doc_id")
+        
         if not doc_id:
             print("Invalid task payload, missing 'doc_id'")
             return
@@ -182,6 +191,9 @@ def load_snippet(task_payload, test=False):
         doc_data = decode_redis_data(doc_data)
 
         named_entities_str = doc_data.get("named_entities")
+        title = doc_data.get("title", "")
+        url = doc_data.get("url", "")
+        date = doc_data.get("date", "")
         relations_str = doc_data.get("relations")
         if not named_entities_str or not relations_str:
             print(f"Document {doc_id} is missing named entities or relations.")
@@ -192,19 +204,67 @@ def load_snippet(task_payload, test=False):
 
         uri = "bolt://localhost:7687"
         driver = GraphDatabase.driver(uri, auth=("neo4j", "password"))
+        
+        def format_relationship_name(rel_name):
+            """Converts 'snake_case' to 'Title Case' for better readability in Neo4j."""
+            return re.sub(r'[_-]', ' ', rel_name).title()
 
-        def add_entities_and_relations(tx, named_entities, relations):
+        def add_entities_and_relations(tx, doc_id, title, url, date, named_entities, relations):
+            # Create a Document node with metadata
+            tx.run(
+                """
+                MERGE (d:Document {doc_id: $doc_id})
+                ON CREATE SET d.title = $title, d.url = $url, d.date = $date
+                """,
+                doc_id=doc_id,
+                title=title,
+                url=url,
+                date=date
+            )
+
+            # Define mapping of entity types to Neo4j labels
+            entity_label_map = {
+                "PERSON": "Person",
+                "ORG": "Organization",
+                "DATE": "Date",
+                "CARDINAL": "Number",
+                "GPE": "GeopoliticalEntity",
+                "NORP": "Group",
+                "FAC": "Facility",
+                "LOC": "Location",
+                "EVENT": "Event",
+                "WORK_OF_ART": "Work",
+                "LAW": "Law",
+                "PRODUCT": "Product"
+            }
+
+            # Add entities with type-based labels and link them to the Document node
             for entity_type, texts in named_entities.items():
+                label = entity_label_map.get(entity_type, "Entity")  # Default to 'Entity' if type is unknown
                 for text in texts:
+                    entity_query = f"""
+                    MERGE (e:{label} {{text: $text, doc_id: $doc_id}})
+                    ON CREATE SET e.type = $entity_type
+                    """
                     tx.run(
-                        """
-                        MERGE (e:Entity {text: $text})
-                        ON CREATE SET e.type = $entity_type
-                        """,
+                        entity_query,
                         text=text,
+                        doc_id=doc_id,
                         entity_type=entity_type
                     )
 
+                    mentions_query = f"""
+                    MATCH (d:Document {{doc_id: $doc_id}})
+                    MATCH (e:{label} {{text: $text, doc_id: $doc_id}})
+                    MERGE (d)-[:MENTIONS]->(e)
+                    """
+                    tx.run(
+                        mentions_query,
+                        doc_id=doc_id,
+                        text=text
+                    )
+
+            # Add relationships between entities
             for key, confidence in relations.items():
                 parts = key.split("||")
                 if len(parts) != 3:
@@ -213,32 +273,34 @@ def load_snippet(task_payload, test=False):
 
                 subject, relation, object_ = parts
                 clean_relation = relation.split(":", 1)[-1] if ":" in relation else relation
+                formatted_relation = format_relationship_name(clean_relation)  # Converts to Title Case
+
+                # Use f-string to dynamically insert the relationship type
+                relation_query = f"""
+                MATCH (s {{text: $subject, doc_id: $doc_id}})
+                MATCH (o {{text: $object, doc_id: $doc_id}})
+                MERGE (s)-[r:`{formatted_relation}` {{doc_id: $doc_id, confidence: $confidence, relation_tuple: $relation_tuple}}]->(o)
+                """
 
                 tx.run(
-                    """
-                    MATCH (s:Entity {text: $subject})
-                    MATCH (o:Entity {text: $object})
-                    MERGE (s)-[r:RELATES {relation: $clean_relation}]->(o)
-                    SET r.strength = $confidence
-                    """,
+                    relation_query,
                     subject=subject,
                     object=object_,
-                    clean_relation=clean_relation,
-                    confidence=confidence
+                    confidence=confidence,
+                    doc_id=doc_id,
+                    relation_tuple=key  # Stores full relation tuple
                 )
 
         with driver.session() as session:
-            try:
-                session.execute_write(add_entities_and_relations, named_entities, relations)        
-                print(f"Loaded snippet {doc_id} into Neo4j successfully.")
-            except Exception as e:
-                print(f"Error executing Neo4j transaction: {e}")
-                if test:
-                    # throw an exception to indicate failure
-                    raise Exception(f"Failed Neo4j Transaction for doc ID: {doc_id}")
-            finally:
-                session.close()
-                driver.close()
+            session.execute_write(add_entities_and_relations, doc_id, title, url, date, named_entities, relations)        
+            print(f"Loaded snippet {doc_id} into Neo4j successfully.")
 
     except Exception as e:
-        print(f"Error loading snippet into Neo4j: {e}")
+        print(f"Error loading snippet into Neo4j on line {e.__traceback__.tb_lineno}: {e}")
+        if test:
+            raise Exception(f"Failed to load snippet into Neo4j for doc ID: {doc_id}")
+    finally:
+        redis_conn.close()
+        print("Redis connection closed.")
+        driver.close()
+        print("Neo4j driver closed.")

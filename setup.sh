@@ -32,6 +32,7 @@ box download_file "https://packages.redis.io/gpg" "/tmp/redis.gpg"
 sudo gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg < /tmp/redis.gpg
 sudo chmod 644 /usr/share/keyrings/redis-archive-keyring.gpg
 echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb jammy main" | sudo tee /etc/apt/sources.list.d/redis.list
+sudo apt update
 box install_package redis-stack-server
 
 if [[ "$VIRT" != "wsl" ]]; then
@@ -61,6 +62,7 @@ box log_info "Installing Neo4j..."
 box download_file "https://debian.neo4j.com/neotechnology.gpg.key" "/tmp/neo4j.gpg.key"
 sudo gpg --dearmor -o /etc/apt/keyrings/neotechnology.gpg < /tmp/neo4j.gpg.key
 echo 'deb [signed-by=/etc/apt/keyrings/neotechnology.gpg] https://debian.neo4j.com stable latest' | sudo tee /etc/apt/sources.list.d/neo4j.list
+sudo apt update
 box install_package neo4j=1:2025.02.0
 
 box log_info "Setting initial password for Neo4j..."
@@ -162,12 +164,14 @@ cd "$HTTP_DIR"
 box download_file "https://raw.githubusercontent.com/rajatasusual/llamabox/refs/heads/master/scripts/http-server.py" "http-server.py"
 chmod +x http-server.py
 cd $HOME
-# Install Flask (if not already installed in our venv, our box setup_venv already handled it)
-source "$VENV_DIR/bin/activate"
-deactivate
 
 HTTP_CMD="$HOME/$VENV_DIR/bin/python $HOME/$HTTP_DIR/http-server.py"
-box start_service "http-server" "$HTTP_CMD" "$HTTP_DIR"
+if [[ "$VIRT" != "wsl" ]]; then
+    nohup $HTTP_CMD > http-server.log 2>&1 &
+else
+    box log_info "Creating systemd service for HTTP server..."
+    box start_service "http-server" "$HTTP_CMD" "$HTTP_DIR"
+fi
 box check_health "http://localhost:5000/health" '"status":"ok"'
 
 # 8. (WSL Only) Configure auto-restart, security, and additional settings

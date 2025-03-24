@@ -42,27 +42,48 @@ except Exception as e:
     if "Index already exists" not in str(e):
         print("Error creating index:", e)
 
-def embed_snippet(data, timestamp):
+def decode_redis_data(doc_data):
+    """Decode Redis data, handling binary and UTF-8 strings."""
+    decoded_data = {}
+    for k, v in doc_data.items():
+        key_decoded = k.decode("utf-8") if isinstance(k, bytes) else k
+        try:
+            value_decoded = v.decode("utf-8") if isinstance(v, bytes) else v
+        except UnicodeDecodeError:
+            value_decoded = v  # Keep as bytes if it fails to decode
+        decoded_data[key_decoded] = value_decoded
+    return decoded_data
+
+def store_document_in_redis(doc_id, item, embedding_bytes):
+    """Store document and embedding in Redis."""
+    mapping = {k: str(v) for k, v in item.items() if k != "embedding"}
+    redis_conn.hset(f"doc:{doc_id}", mapping=mapping)
+    redis_conn.hset(f"doc:{doc_id}", "embedding", embedding_bytes)
+    print(f"Added document with UUID: {doc_id}")
+
+def save_to_local_file(file_path, data):
+    """Save data to a local JSON file."""
+    with open(file_path, "a") as f:
+        json.dump(data, f)
+        f.write("\n")
+
+def embed_snippet(data, timestamp, test=False):
     """Processes the snippet data: gets embeddings, stores them, and enqueues an extraction task."""
     try:
-        # Extract snippets from the input JSON array
         snippets = [item["snippet"] for item in data if "snippet" in item and item["snippet"].strip()]
 
         if not snippets:
             print(f"[{timestamp}] No valid snippets found. Skipping processing.")
             return
 
-        # Request embeddings from Llama-cpp server
         response = requests.post(EMBEDDING_SERVER, json={"content": snippets})
 
         if response.status_code == 200:
-            # Assuming response.json() returns a list of dicts with key 'embedding'
             embeddings = [item['embedding'][0] for item in response.json()]
             if len(embeddings) != len(snippets):
                 print(f"[{timestamp}] Warning: Mismatch between snippets and embeddings count!")
                 return
 
-            # Process and store embeddings along with metadata
             processed_data = [
                 {
                     **{k: item[k] for k in ['date', 'title', 'url'] if k in item},
@@ -73,33 +94,20 @@ def embed_snippet(data, timestamp):
             ]
 
             for item in processed_data:
-                # Generate a unique ID for each document
                 doc_id = str(uuid.uuid4())
                 item["id"] = doc_id
-
-                # Convert the embedding (a list) into bytes
                 embedding_bytes = np.array(item["embedding"], dtype=np.float32).tobytes()
+                store_document_in_redis(doc_id, item, embedding_bytes)
 
-                # Remove the embedding from the mapping since we'll set it separately
-                mapping = {k: v for k, v in item.items() if k != "embedding"}
-                # Store the rest of the fields as strings
-                mapping = {k: str(v) for k, v in mapping.items()}
+                if test:
+                    return doc_id
+                else:
+                    queue = Queue("snippet_queue", connection=redis_conn)
+                    queue.enqueue(extract_snippet, {"doc_id": doc_id})
 
-                # Store the document in Redis
-                redis_conn.hset(f"doc:{doc_id}", mapping=mapping)
-                # Store the embedding bytes
-                redis_conn.hset(f"doc:{doc_id}", "embedding", embedding_bytes)
-                print(f"Added document with UUID: {doc_id}")
-
-                # Enqueue extraction task **within snippet_queue**
-                queue = Queue("snippet_queue", connection=redis_conn)
-                queue.enqueue(extract_snippet, {"doc_id": doc_id})
-
-            # Optionally save to a local JSON file (for backup or audit)
-            with open(VECTOR_STORE, "a") as f:
-                json.dump({"timestamp": timestamp, "data": processed_data}, f)
-                f.write("\n")
-
+            if not test:
+                # Save the processed data to a local file
+                save_to_local_file(VECTOR_STORE, {"timestamp": timestamp, "data": processed_data})
             print(f"[{timestamp}] Successfully processed {len(snippets)} snippets.")
 
         else:
@@ -108,38 +116,20 @@ def embed_snippet(data, timestamp):
     except Exception as e:
         print(f"[{timestamp}] Error processing snippet: {e}")
     finally:
-        # Close Redis connection
         redis_conn.close()
         print("Redis connection closed.")
 
-
-# Worker function to process tasks from the queue
-def extract_snippet(task_payload):
-    
+def extract_snippet(task_payload, test=False):
     """Processes a task from the queue by extracting information."""
     try:
-        # Parse the task payload
         doc_id = task_payload.get("doc_id")
 
         if not doc_id:
             print("Invalid task payload, missing 'doc_id'")
             return
 
-        # Retrieve the snippet and metadata from Redis
         doc_data = redis_conn.hgetall(f"doc:{doc_id}")
-
-        # Decode only if the value is a valid UTF-8 string, leave binary data as is
-        decoded_data = {}
-        for k, v in doc_data.items():
-            key_decoded = k.decode("utf-8") if isinstance(k, bytes) else k
-            try:
-                value_decoded = v.decode("utf-8") if isinstance(v, bytes) else v
-            except UnicodeDecodeError:
-                value_decoded = v  # Keep as bytes if it fails to decode
-            
-            decoded_data[key_decoded] = value_decoded
-
-        doc_data = decoded_data
+        doc_data = decode_redis_data(doc_data)
         
         if not doc_data or "snippet" not in doc_data:
             print(f"Document {doc_id} not found or missing snippet.")
@@ -147,92 +137,65 @@ def extract_snippet(task_payload):
         
         snippet = doc_data["snippet"]
 
-        # Call extract_information
         from information_extractor.main import extract_information
 
         relations, named_entities = extract_information(snippet)
 
-        # print or log the extracted information
         print(f"Extracted relations: {relations}")
         print(f"Named entities: {named_entities}")
 
-        # Convert relations to a dictionary with keys formatted as "subject||relation||object"
-        # and values as confidence scores
         relations_dict = {f"{s}||{r}||{o}": float(c) for (s, r, o), c in relations.items()}
         named_entities_list = {k: list(v) if isinstance(v, set) else v for k, v in named_entities.items()}
         
-        # Store extracted information back in Redis
         redis_conn.hset(f"doc:{doc_id}", mapping={
             "relations": json.dumps(relations_dict),
             "named_entities": json.dumps(named_entities_list)
         })
 
-        # Optionally save to a local JSON file (for backup or audit)
-        with open(ENTITY_STORE, "a") as f:
-            json.dump({"doc_id": doc_id, "relations": relations_dict, "named_entities": named_entities_list}, f)
-            f.write("\n")
+        if not test:
+            save_to_local_file(ENTITY_STORE, {"doc_id": doc_id, "relations": relations_dict, "named_entities": named_entities_list})
 
-        # Print or log the extracted information
         print(f"Extraction completed for document {doc_id}: {relations}")
         
-        queue = Queue("snippet_queue", connection=redis_conn)
-        queue.enqueue(load_snippet, {"doc_id": doc_id})
+        if test:
+            return doc_id
+        else:
+            # Enqueue the next task to load the snippet into Neo4j
+            queue = Queue("snippet_queue", connection=redis_conn)
+            queue.enqueue(load_snippet, {"doc_id": doc_id})
     
     except Exception as e:
         print(f"Error extracting information on line {e.__traceback__.tb_lineno}: {e}")
     finally:
-        # close redis connection
         redis_conn.close()
         print("Redis connection closed.")
 
-
-# Worker function to load the snippet into Neo4j
-def load_snippet(task_payload):
-    """
-    Loads a snippet into Neo4j by retrieving entities and relations from Redis,
-    then inserting them into the graph database.
-    """
+def load_snippet(task_payload, test=False):
+    """Loads a snippet into Neo4j by retrieving entities and relations from Redis, then inserting them into the graph database."""
     try:
         doc_id = task_payload.get("doc_id")
         if not doc_id:
             print("Invalid task payload, missing 'doc_id'")
             return
 
-        # Retrieve the snippet data from Redis
         doc_data = redis_conn.hgetall(f"doc:{doc_id}")
+        doc_data = decode_redis_data(doc_data)
 
-        # Decode only if the value is a valid UTF-8 string; leave binary data as is.
-        decoded_data = {}
-        for k, v in doc_data.items():
-            key_decoded = k.decode("utf-8") if isinstance(k, bytes) else k
-            try:
-                value_decoded = v.decode("utf-8") if isinstance(v, bytes) else v
-            except UnicodeDecodeError:
-                value_decoded = v  # keep as bytes if decoding fails
-            decoded_data[key_decoded] = value_decoded
-        doc_data = decoded_data
-
-        # Make sure the required fields are available
         named_entities_str = doc_data.get("named_entities")
         relations_str = doc_data.get("relations")
         if not named_entities_str or not relations_str:
             print(f"Document {doc_id} is missing named entities or relations.")
             return
 
-        # Convert JSON strings to Python objects
         named_entities = json.loads(named_entities_str)
         relations = json.loads(relations_str)
 
-        # Connect to Neo4j
         uri = "bolt://localhost:7687"
         driver = GraphDatabase.driver(uri, auth=("neo4j", "password"))
 
         def add_entities_and_relations(tx, named_entities, relations):
-            # Create nodes for each entity.
-            # 'named_entities' is a dict: entity_type -> list of entity texts.
             for entity_type, texts in named_entities.items():
                 for text in texts:
-                    # Merge an Entity node with properties text and type.
                     tx.run(
                         """
                         MERGE (e:Entity {text: $text})
@@ -242,9 +205,6 @@ def load_snippet(task_payload):
                         entity_type=entity_type
                     )
 
-            # Create relationships between entities.
-            # 'relations' is a dict with keys in the format "subject||relation||object"
-            # and values representing the confidence score.
             for key, confidence in relations.items():
                 parts = key.split("||")
                 if len(parts) != 3:
@@ -252,7 +212,6 @@ def load_snippet(task_payload):
                     continue
 
                 subject, relation, object_ = parts
-                # Clean up the relationship string: remove any prefix like "per:" or "org:".
                 clean_relation = relation.split(":", 1)[-1] if ":" in relation else relation
 
                 tx.run(
@@ -269,10 +228,17 @@ def load_snippet(task_payload):
                 )
 
         with driver.session() as session:
-            session.write_transaction(add_entities_and_relations, named_entities, relations)
-
-        driver.close()
-        print(f"Loaded snippet {doc_id} into Neo4j successfully.")
+            try:
+                session.execute_write(add_entities_and_relations, named_entities, relations)        
+                print(f"Loaded snippet {doc_id} into Neo4j successfully.")
+            except Exception as e:
+                print(f"Error executing Neo4j transaction: {e}")
+                if test:
+                    # throw an exception to indicate failure
+                    raise Exception(f"Failed Neo4j Transaction for doc ID: {doc_id}")
+            finally:
+                session.close()
+                driver.close()
 
     except Exception as e:
         print(f"Error loading snippet into Neo4j: {e}")

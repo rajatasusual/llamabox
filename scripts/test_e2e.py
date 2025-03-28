@@ -49,7 +49,52 @@ class TestWorkerFunctions(unittest.TestCase):
         # Check for any Neo4j-related exceptions during execution
         self.assertTrue(True, "Neo4j operation completed without errors")
         
+    def test_stress_test(self):
+        """Stress test extraction by running extract_snippet 10 times for 10 docs in Redis."""
+        # Create 10 test documents in Redis
+        test_doc_ids = []
+        snippets = [
+            "Elon Musk and Tesla: In 2003, Elon Musk joined Tesla Motors, an electric vehicle company, as chairman.",
+            "Bill Gates and Microsoft: In 1975, Bill Gates co-founded Microsoft with Paul Allen to develop software for personal computers.",
+            "Jeff Bezos and Amazon: In 1994, Jeff Bezos founded Amazon, initially an online bookstore, which later expanded into a global e-commerce giant.",
+            "Steve Jobs and Apple: In 1976, Steve Jobs co-founded Apple Inc. with Steve Wozniak and Ronald Wayne to create personal computers.",
+            "Mark Zuckerberg and Facebook: In 2004, Mark Zuckerberg launched Facebook, a social networking platform, from his Harvard dorm room.",
+            "Sundar Pichai and Google: Sundar Pichai became the CEO of Google in 2015, leading the company into new areas of innovation.",
+            "Satya Nadella and Microsoft: Satya Nadella became the CEO of Microsoft in 2014, focusing on cloud computing and AI technologies.",
+            "Larry Ellison and Oracle: Larry Ellison co-founded Oracle Corporation in 1977, a company specializing in database software.",
+            "Sheryl Sandberg and Facebook: Sheryl Sandberg joined Facebook as COO in 2008, helping to scale its business operations.",
+            "Tim Cook and Apple: Tim Cook succeeded Steve Jobs as CEO of Apple in 2011, continuing to drive the company's growth."
+        ]
+        for i in range(10):
+            test_data = {
+                "timestamp": f"2025032323142{i}",
+                "data": [{
+                    "date": f"2025-03-23T23:13:2{i}.700Z",
+                    "title": f"Test Document {i}",
+                    "url": f"http://example.com/doc{i}",
+                    "snippet": snippets[i],
+                    "id": f"doc-{i}"
+                }]
+            }
+            doc_id = embed_snippet(test_data["data"], test_data["timestamp"], True)
+            test_doc_ids.append(doc_id)
 
+        # Stress test extract_snippet
+        for doc_id in test_doc_ids:
+            extract_snippet({"doc_id": doc_id}, True)
+
+        # Verify extracted data for all test documents
+        for doc_id in test_doc_ids:
+            doc_data = self.redis_conn.hgetall(f"doc:{doc_id}")
+            doc_data = decode_redis_data(doc_data)
+            self.assertIn("relations", doc_data, f"Relations not stored for doc {doc_id}")
+            self.assertIn("named_entities", doc_data, f"Named entities not stored for doc {doc_id}")
+            load_snippet({"doc_id": doc_id}, True)
+            
+        # Cleanup test documents
+        for doc_id in test_doc_ids:
+            self.redis_conn.delete(f"doc:{doc_id}")
+            
     @classmethod
     def tearDownClass(cls):
         """Cleanup: Remove test data from Redis."""

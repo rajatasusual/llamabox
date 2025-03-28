@@ -11,18 +11,17 @@ VENV_DIR="venv"
 # Environment Detection
 # ---------------------------
 VIRT=$(systemd-detect-virt 2>/dev/null || echo "none")
-if [[ "$VIRT" == "wsl" ]]; then
-    # ---------------------------
-    # Sudo/Root Check
-    # ---------------------------
-    if [[ "$EUID" -eq 0 ]]; then
-        echo -e "\e[31m[WARNING] Running as root or using sudo!\e[0m"
-        echo "[INFO] It's recommended to run this script as a regular user unless explicitly needed."
-        read -p "Do you want to continue as root? (y/N): " consent
-        if [[ ! "$consent" =~ ^[Yy]$ ]]; then
-            echo "Exiting..."
-            exit 1
-        fi
+
+# ---------------------------
+# Sudo/Root Check
+# ---------------------------
+if [[ "$EUID" -eq 0 ]]; then
+    echo -e "\e[31m[WARNING] Running as root or using sudo!\e[0m"
+    echo "[INFO] It's recommended to run this script as a regular user unless explicitly needed."
+    read -p "Do you want to continue as root? (y/N): " consent
+    if [[ ! "$consent" =~ ^[Yy]$ ]]; then
+        echo "Exiting..."
+        exit 1
     fi
 fi
 
@@ -120,10 +119,12 @@ check_health() {
     local expected="$3"
     local restart="$4"
     local service_name="$5"
+
     if curl -s -X GET "$url" | grep -q "$expected"; then
-        echo "✅ Health check passed for $common_name"
+        echo "✅ Health check passed for $url"
     else
-        echo "❌ Error: Health check failed for $common_name"
+        echo "❌ Error: Health check failed for $url"
+	echo $restart
         if [[ "$restart" == "true" ]]; then
             restart_service "$service_name"
         fi
@@ -132,11 +133,9 @@ check_health() {
 }
 
 setup_venv() {
-    if [[ "$VIRT" == "wsl" ]]; then
-        if [[ "$EUID" -eq 0 ]]; then
-            echo -e "\e[31m[ERROR] Do not run this command as root!\e[0m"
-            return 1  # Exit function with an error
-        fi
+    if [[ "$EUID" -eq 0 ]]; then
+        echo -e "\e[31m[ERROR] Do not run this command as root!\e[0m"
+        return 1  # Exit function with an error
     fi
     if [ ! -d "$VENV_DIR" ]; then
         log_info "Creating Python virtual environment in $VENV_DIR"
@@ -146,9 +145,12 @@ setup_venv() {
     log_info "Setting up Python virtual environment..."
     source "$VENV_DIR/bin/activate"
     pip install --upgrade pip
-    pip install rq redis flask requests neo4j numpy
+    pip install rq redis flask requests
     deactivate
 }
+
+
+#!/bin/bash
 
 if [[ $# -lt 1 ]]; then
     echo "Usage: box <command> [arguments]"

@@ -115,6 +115,9 @@ check_health() {
         echo "✅ Health check passed for $url"
     else
         echo "❌ Error: Health check failed for $url"
+        echo "Expected: $expected"
+        echo "Actual: $(curl -s -X GET "$url")"
+        echo "Please check the service logs for more details."
         exit 1
     fi
 }

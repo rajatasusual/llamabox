@@ -1,17 +1,19 @@
-import gc  # Import garbage collection module
-
 from redis import Redis
 from redis.commands.search.field import TextField, TagField, VectorField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 from rq import Queue, Retry
 from neo4j import GraphDatabase
-import re
+import numpy as np
 import requests
+from retry import retry
+
+import gc
+import re
 import uuid
 import json
 import os
-from retry import retry
-import numpy as np
+
+from helper import decode_redis_data, store_document_in_redis, save_to_local_file
 
 # Configuration
 EMBEDDING_SERVER = "http://localhost:8000/embedding"  # Llama-cpp endpoint
@@ -28,7 +30,7 @@ schema = (
     TagField("genre"),
     VectorField("embedding", "HNSW", {
         "TYPE": "FLOAT32",
-        "DIM": 384,
+        "DIM": 768,
         "DISTANCE_METRIC": "L2"
     })
 )
@@ -43,31 +45,6 @@ try:
 except Exception as e:
     if "Index already exists" not in str(e):
         print("Error creating index:", e)
-
-def decode_redis_data(doc_data):
-    """Decode Redis data, handling binary and UTF-8 strings."""
-    decoded_data = {}
-    for k, v in doc_data.items():
-        key_decoded = k.decode("utf-8") if isinstance(k, bytes) else k
-        try:
-            value_decoded = v.decode("utf-8") if isinstance(v, bytes) else v
-        except UnicodeDecodeError:
-            value_decoded = v  # Keep as bytes if it fails to decode
-        decoded_data[key_decoded] = value_decoded
-    return decoded_data
-
-def store_document_in_redis(doc_id, item, embedding_bytes):
-    """Store document and embedding in Redis."""
-    mapping = {k: str(v) for k, v in item.items() if k != "embedding"}
-    redis_conn.hset(f"doc:{doc_id}", mapping=mapping)
-    redis_conn.hset(f"doc:{doc_id}", "embedding", embedding_bytes)
-    print(f"Added document with UUID: {doc_id}")
-
-def save_to_local_file(file_path, data):
-    """Save data to a local JSON file."""
-    with open(file_path, "a") as f:
-        json.dump(data, f)
-        f.write("\n")
 
 def embed_snippet(data, timestamp, test=False):
     """Processes the snippet data: gets embeddings, stores them, and enqueues an extraction task."""

@@ -137,7 +137,7 @@ setup_venv() {
     log_info "Setting up Python virtual environment..."
     source "$VENV_DIR/bin/activate"
     pip install --upgrade pip
-    pip install rq redis flask requests neo4j numpy
+    pip install rq redis flask requests neo4j numpy psutil retry
     deactivate
 }
 

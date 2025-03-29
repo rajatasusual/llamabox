@@ -1,16 +1,17 @@
-import numpy as np  # Import numpy to handle the conversion
+import gc  # Import garbage collection module
+
 from redis import Redis
 from redis.commands.search.field import TextField, TagField, VectorField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
-from rq import Queue
-
+from rq import Queue, Retry
 from neo4j import GraphDatabase
-
 import re
 import requests
 import uuid
 import json
 import os
+from retry import retry
+import numpy as np
 
 # Configuration
 EMBEDDING_SERVER = "http://localhost:8000/embedding"  # Llama-cpp endpoint
@@ -77,7 +78,13 @@ def embed_snippet(data, timestamp, test=False):
             print(f"[{timestamp}] No valid snippets found. Skipping processing.")
             return
 
-        response = requests.post(EMBEDDING_SERVER, json={"content": snippets})
+        try:
+            response = requests.post(EMBEDDING_SERVER, json={"content": snippets})
+            response.raise_for_status()  # Raises exception for 4xx/5xx errors
+        except requests.exceptions.HTTPError as http_err:
+            print(f"HTTP error: {http_err}")
+        except requests.exceptions.ConnectionError as conn_err:
+            print(f"Connection error: {conn_err}")
 
         if response.status_code == 200:
             embeddings = [item['embedding'][0] for item in response.json()]
@@ -104,7 +111,7 @@ def embed_snippet(data, timestamp, test=False):
                     return doc_id
                 else:
                     queue = Queue("snippet_queue", connection=redis_conn)
-                    queue.enqueue(extract_snippet, {"doc_id": doc_id})
+                    queue.enqueue(extract_snippet, {"doc_id": doc_id}, retry=Retry(max=3, interval=[10, 30, 60]))  # Retry 3 times with increasing delay
 
             if not test:
                 # Save the processed data to a local file
@@ -122,7 +129,9 @@ def embed_snippet(data, timestamp, test=False):
     finally:
         redis_conn.close()
         print("Redis connection closed.")
+        gc.collect()  # Trigger garbage collection
 
+@retry((requests.exceptions.RequestException, SystemExit), tries=3, delay=5)
 def extract_snippet(task_payload, test=False):
     """Processes a task from the queue by extracting information."""
     try:
@@ -177,6 +186,7 @@ def extract_snippet(task_payload, test=False):
     finally:
         redis_conn.close()
         print("Redis connection closed.")
+        gc.collect()  # Trigger garbage collection
 
 def load_snippet(task_payload, test=False):
     """Loads a snippet into Neo4j by retrieving entities and relations from Redis, then inserting them into the graph database."""
@@ -304,3 +314,4 @@ def load_snippet(task_payload, test=False):
         print("Redis connection closed.")
         driver.close()
         print("Neo4j driver closed.")
+        gc.collect()  # Trigger garbage collection

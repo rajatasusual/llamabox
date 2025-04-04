@@ -137,7 +137,10 @@ box print_header "6. Setup Redis Worker"
 mkdir -p "$HTTP_DIR"
 cd "$HTTP_DIR"
 box download_file "https://raw.githubusercontent.com/rajatasusual/llamabox/refs/heads/master/scripts/worker.py" "worker.py"
+box download_file "https://raw.githubusercontent.com/rajatasusual/llamabox/refs/heads/master/scripts/helper.py" "helper.py"
+
 chmod +x worker.py
+chmod +x helper.py
 cd $HOME
 
 box setup_venv

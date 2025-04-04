@@ -1,17 +1,18 @@
+import gc  # Import garbage collection module
+
+# Other imports remain the same
 from redis import Redis
 from redis.commands.search.field import TextField, TagField, VectorField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 from rq import Queue, Retry
 from neo4j import GraphDatabase
-import numpy as np
-import requests
-from retry import retry
-
-import gc
 import re
+import requests
 import uuid
 import json
 import os
+from retry import retry
+import numpy as np
 
 from helper import decode_redis_data, store_document_in_redis, save_to_local_file
 
@@ -21,10 +22,13 @@ REDIS_HOST = "localhost"
 REDIS_PORT = 6379
 VECTOR_STORE = "vectors.json"  # Local storage for embeddings (replace with DB if needed)
 ENTITY_STORE = "entities.json"  # Local storage for entities (replace with DB if needed)
+NEO4J_URI = "bolt://localhost:7687"  # Neo4j URI
+neo4j_username = os.getenv("NEO4J_USERNAME", "neo4j")
+neo4j_password = os.getenv("NEO4J_PASSWORD", "password")  # Default password, change as needed
 
-# Redis connection (set decode_responses=False to handle binary data properly)
 redis_conn = Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=False)
-
+driver = GraphDatabase.driver(NEO4J_URI, auth=(neo4j_username, neo4j_password))
+        
 schema = (
     TextField("content"),
     TagField("genre"),
@@ -166,10 +170,8 @@ def extract_snippet(task_payload, test=False):
         gc.collect()  # Trigger garbage collection
 
 def load_snippet(task_payload, test=False):
-    """Loads a snippet into Neo4j by retrieving entities and relations from Redis, then inserting them into the graph database."""
     try:
         doc_id = task_payload.get("doc_id")
-        
         if not doc_id:
             print("Invalid task payload, missing 'doc_id'")
             return
@@ -189,27 +191,16 @@ def load_snippet(task_payload, test=False):
         named_entities = json.loads(named_entities_str)
         relations = json.loads(relations_str)
 
-        uri = "bolt://localhost:7687"
-        driver = GraphDatabase.driver(uri, auth=("neo4j", "password"))
-        
         def format_relationship_name(rel_name):
-            """Converts 'snake_case' to 'Title Case' for better readability in Neo4j."""
             return re.sub(r'[_-]', ' ', rel_name).title()
 
         def add_entities_and_relations(tx, doc_id, title, url, date, named_entities, relations):
-            # Create a Document node with metadata
-            tx.run(
-                """
+            # Create or update Document node
+            tx.run("""
                 MERGE (d:Document {doc_id: $doc_id})
-                ON CREATE SET d.title = $title, d.url = $url, d.date = $date
-                """,
-                doc_id=doc_id,
-                title=title,
-                url=url,
-                date=date
-            )
+                SET d.title = $title, d.url = $url, d.date = $date
+            """, doc_id=doc_id, title=title, url=url, date=date)
 
-            # Define mapping of entity types to Neo4j labels
             entity_label_map = {
                 "PERSON": "Person",
                 "ORG": "Organization",
@@ -225,33 +216,23 @@ def load_snippet(task_payload, test=False):
                 "PRODUCT": "Product"
             }
 
-            # Add entities with type-based labels and link them to the Document node
+            # Add global entities and connect to Document
             for entity_type, texts in named_entities.items():
-                label = entity_label_map.get(entity_type, "Entity")  # Default to 'Entity' if type is unknown
+                label = entity_label_map.get(entity_type, "Entity")
                 for text in texts:
                     entity_query = f"""
-                    MERGE (e:{label} {{text: $text, doc_id: $doc_id}})
-                    ON CREATE SET e.type = $entity_type
+                    MERGE (e:{label} {{text: $text, type: $entity_type}})
                     """
-                    tx.run(
-                        entity_query,
-                        text=text,
-                        doc_id=doc_id,
-                        entity_type=entity_type
-                    )
+                    tx.run(entity_query, text=text, entity_type=entity_type)
 
                     mentions_query = f"""
                     MATCH (d:Document {{doc_id: $doc_id}})
-                    MATCH (e:{label} {{text: $text, doc_id: $doc_id}})
+                    MATCH (e:{label} {{text: $text, type: $entity_type}})
                     MERGE (d)-[:MENTIONS]->(e)
                     """
-                    tx.run(
-                        mentions_query,
-                        doc_id=doc_id,
-                        text=text
-                    )
+                    tx.run(mentions_query, doc_id=doc_id, text=text, entity_type=entity_type)
 
-            # Add relationships between entities
+            # Add relationships between entities (deduped across docs)
             for key, confidence in relations.items():
                 parts = key.split("||")
                 if len(parts) != 3:
@@ -260,13 +241,15 @@ def load_snippet(task_payload, test=False):
 
                 subject, relation, object_ = parts
                 clean_relation = relation.split(":", 1)[-1] if ":" in relation else relation
-                formatted_relation = format_relationship_name(clean_relation)  # Converts to Title Case
+                formatted_relation = format_relationship_name(clean_relation)
 
-                # Use f-string to dynamically insert the relationship type
                 relation_query = f"""
-                MATCH (s {{text: $subject, doc_id: $doc_id}})
-                MATCH (o {{text: $object, doc_id: $doc_id}})
-                MERGE (s)-[r:`{formatted_relation}` {{doc_id: $doc_id, confidence: $confidence, relation_tuple: $relation_tuple}}]->(o)
+                MATCH (s {{text: $subject}})
+                MATCH (o {{text: $object}})
+                MERGE (s)-[r:`{formatted_relation}`]->(o)
+                ON CREATE SET r.confidence = $confidence, r.relation_tuple = $relation_tuple, r.docs = [$doc_id]
+                ON MATCH SET r.confidence = (r.confidence + $confidence) / 2,
+                              r.docs = CASE WHEN $doc_id IN r.docs THEN r.docs ELSE r.docs + $doc_id END
                 """
 
                 tx.run(
@@ -275,11 +258,11 @@ def load_snippet(task_payload, test=False):
                     object=object_,
                     confidence=confidence,
                     doc_id=doc_id,
-                    relation_tuple=key  # Stores full relation tuple
+                    relation_tuple=key
                 )
 
         with driver.session() as session:
-            session.execute_write(add_entities_and_relations, doc_id, title, url, date, named_entities, relations)        
+            session.execute_write(add_entities_and_relations, doc_id, title, url, date, named_entities, relations)
             print(f"Loaded snippet {doc_id} into Neo4j successfully.")
 
     except Exception as e:
@@ -291,4 +274,4 @@ def load_snippet(task_payload, test=False):
         print("Redis connection closed.")
         driver.close()
         print("Neo4j driver closed.")
-        gc.collect()  # Trigger garbage collection
+        gc.collect()

@@ -10,7 +10,7 @@ import psutil
 from datetime import datetime
 
 from worker import embed_snippet 
-from helper import decode_redis_data, redis_search
+from helper import decode_redis_data, redis_search, context_search
 
 
 app = Flask(__name__)
@@ -116,7 +116,7 @@ def failed_jobs():
 
 # Endpoint to search for similar documents using Redis
 @app.route('/rsearch', methods=['POST'])
-def search():
+def rsearch():
     data = request.json
     query_text = data.get("query")
 
@@ -133,6 +133,23 @@ def search():
         print(f"Error during search: {e}")
         return jsonify({"error": "Search failed"}), 500
 
+@app.route('/search', methods=['POST'])
+def search():
+    data = request.json
+    query_text = data.get("query")
+
+    if not query_text:
+        return jsonify({"error": "Query text is required"}), 400
+
+    try:
+        # Compute the embedding for the query
+        documents = context_search(query_text)
+        if not documents:
+            return jsonify({"message": "No similar documents found"}), 200
+        return jsonify({"documents": documents}), 200
+    except Exception as e:
+        print(f"Error during search: {e}")
+        return jsonify({"error": "Search failed"}), 500
 
 @app.before_request
 def log_request():

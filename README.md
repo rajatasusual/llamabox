@@ -1,239 +1,206 @@
-# Llamabox <img src="assets/icon.png" width="32" height="32" style="vertical-align: middle"> 
+# Llamabox <img src="assets/icon.png" width="32" height="32" style="vertical-align: middle">
 
-[![Distro Health](https://github.com/rajatasusual/llamabox/actions/workflows/check.yml/badge.svg?branch=master)](https://github.com/rajatasusual/llamabox/actions/workflows/check.yml) ![WSL2](https://img.shields.io/badge/WSL2-Supported-blue) ![Debian](https://img.shields.io/badge/Debian-Supported-blue) ![License](https://img.shields.io/badge/License-MIT-green)  
+[![Distro Health](https://github.com/rajatasusual/llamabox/actions/workflows/check.yml/badge.svg?branch=master)](https://github.com/rajatasusual/llamabox/actions/workflows/check.yml)  
+![WSL2](https://img.shields.io/badge/WSL2-Supported-blue) ![Debian](https://img.shields.io/badge/Debian-Supported-blue) ![License](https://img.shields.io/badge/License-MIT-green)
 
-*Run a fully integrated AI and database stack on your low-end, CPU-only Windows machine—secure, resilient, and privacy-focused.*  
-
-> **TL;DR:** Self-host AI on your low-end Windows PC using WSL2. Runs on CPU-only, needs just 1GB RAM. See [SUMMARY.md](docs/SUMMARY.md) for a quick overview.
-
-Llamabox brings **on-device AI** to **low-power systems** by leveraging WSL2 and Debian. Unlike traditional AI setups that require **power-hungry GPUs**, this project is built **for CPUs only**—allowing you to run **efficient local inference** and a **full RAG pipeline** on even modest hardware.  
-
-With Llamabox, you can **self-host AI assistants, chatbots, and knowledge graphs** without relying on external cloud APIs. The lightweight stack includes:  
-✅ **llama.cpp** for blazing-fast **CPU inference**  
-✅ **Redis Stack** for vector database storage  
-✅ **Neo4j** for knowledge graphs  
-✅ **Optimized for low-end Windows laptops & edge devices**  
-
-With a memory footprint as low as **1GB**, Llamabox lets you run **local AI inference and an entire RAG pipeline on a 10-year-old device!**  
-
-![WSL2](https://img.shields.io/badge/WSL2-Supported-blue)  ![Debian](https://img.shields.io/badge/Debian-Supported-blue)  ![License](https://img.shields.io/badge/License-MIT-green)  
-
-![Memory](/assets/mem.png)  
+> **Run a full local RAG pipeline on your low-end, CPU-only Windows machine. Private, resilient, secure.**  
+> **TL;DR:** See [SUMMARY.md](docs/SUMMARY.md) for the stack breakdown and performance.
 
 ---
 
-## **1. Table of Contents**
-- [1. Table of Contents](#1-table-of-contents)
-- [2. Overview](#2-overview)
-    - [2.1 Why This Project Exists?](#21-why-this-project-exists)
-    - [2.2 Why WSL and Debian?](#22-why-wsl-and-debian)
-    - [2.3 What Are the Components and Their Purpose?](#23-what-are-the-components-and-their-purpose)
-- [3. Use Cases](#3-use-cases)
-- [4. Features](#4-features)
-    - [4.1 Security](#41-security)
-    - [4.2 Resiliency](#42-resiliency)
-    - [4.3 Privacy](#43-privacy)
-    - [4.4 CPU-Optimized AI-Powered RAG Pipeline](#44-cpu-optimized-ai-powered-rag-pipeline)
-- [5. Prerequisites](#5-prerequisites)
-- [6. Installation](#6-installation)
-- [7. Start the Services](#7-start-the-services)
-- [8. Performance Benchmarks](#8-performance-benchmarks)
-- [9. Roadmap](#9-roadmap)
-- [10. Common Issues & Fixes](#10-common-issues--fixes)
-- [11. Contributing](#11-contributing)
-- [12. License](#12-license)
-- [13. Credits](#13-credits)
-- [14. Browser Extension](#14-browser-extension)
+## 🚀 What Is Llamabox?
+
+**Llamabox** lets you self-host a complete AI and database stack inside **WSL2 + Debian**, optimized for **CPU-only, low-resource machines**. It's built for privacy-first applications like chatbots, AI search, and offline assistants—**no GPU, no OpenAI keys, no cloud APIs**.
+
+🧠 Llamabox includes:
+- **llama.cpp**: CPU-only inference engine  
+- **Redis Stack**: Vector database for embeddings  
+- **Neo4j**: Graph-based knowledge base  
+- **Secure systemd-based setup**: Auto-restarting services  
+- **Optional browser extension**: Capture and sync content from Chrome/Edge
+
+![Memory usage screenshot](assets/mem.png)
 
 ---
 
-## **2. Overview**  
+## 📑 Table of Contents
 
-### **2.1 Why This Project Exists?**  
-Most AI frameworks are built for **high-end GPUs**, making them **unusable on older machines** or **low-power edge devices**. Llamabox solves this by providing:  
-- **A fully integrated CPU-based AI environment** for local inference.  
-- **A lightweight stack (only ~1GB RAM)** to run AI models without lag.  
-- **An optimized RAG pipeline** with Redis + Neo4j for AI-powered retrieval.  
-- **No cloud dependency**—your data stays **local and private**.  
-
-### **2.2 Why WSL and Debian?**  
-- **WSL2**: Runs Linux on Windows with near-native performance.  
-- **Debian**: Stable, secure, and lightweight—ideal for low-resource machines.  
-- **No need for Docker**: Avoids container overhead while still maintaining isolation.  
-
-### **2.3 What Are the Components and Their Purpose?**  
-| Component      | Purpose |
-|---------------|---------|
-| **Redis Stack**  | Fast vector database for AI embeddings |
-| **Neo4j**       | Graph database for knowledge management |
-| **llama.cpp**   | Local AI inference engine (CPU-optimized) |
-| **Fail2Ban & UFW** | Security hardening against brute-force attacks |
-| **Systemd Auto-Restart** | Ensures services are resilient to crashes |
-| **Local HTTP Server** | Syncs captured pages/snippets from the [browser extension](https://github.com/rajatasusual/llamabox_extension) |
-| **Redis Queue (RQ)** | Asynchronous task handling for creating embeddings and storing them in Redis |
+1. [Overview](#-what-is-llamabox)
+2. [Why WSL2 + Debian?](#-why-wsl2--debian)
+3. [Use Cases](#-use-cases)
+4. [Key Features](#-features)
+5. [Prerequisites](#-prerequisites)
+6. [Installation](#-installation)
+7. [Service Management](#-service-management)
+8. [Performance Benchmarks](#-performance-benchmarks)
+9. [FAQ & Troubleshooting](#-faq--troubleshooting)
+10. [Contributing](#-contributing)
+11. [License & Credits](#-license--credits)
+12. [Browser Extension](#-browser-extension)
 
 ---
 
-## **3. Use Cases**  
-- **AI-powered local search**: Store and retrieve knowledge with Redis + Neo4j.  
-- **Self-hosted AI assistant**: Use `llama.cpp` for **CPU-only inference**.  
-- **Privacy-first chatbots**: Avoid OpenAI/Google APIs—run everything **offline**.  
-- **Edge AI applications**: Ideal for **low-end devices** with limited compute.  
-- **Web Content Capture**: Use the [browser extension](https://github.com/rajatasusual/llamabox_extension) to capture and sync web content.
+## 🐧 Why WSL2 + Debian?
+
+- ✅ **WSL2** runs native Linux with low overhead on Windows  
+- ✅ **Debian** is lightweight and rock-stable  
+- ✅ **No Docker needed** – systemd and all services run directly under WSL  
+- ✅ Keeps everything local and private, with no cloud dependencies
 
 ---
 
-## **4. Features**  
+## 🛠️ Use Cases
 
-### **4.1 Security** 🔒  
-✅ **Disables root SSH login**  
-✅ **Enables firewall (ufw) and Fail2Ban** to prevent attacks  
-✅ **Automatic security updates**  
-
-### **4.2 Resiliency** 🔄  
-✅ **Auto-restarts essential services** after crashes  
-✅ **Persistent Redis storage** for AI embeddings  
-✅ **WSL2 optimizations for memory efficiency**  
-
-### **4.3 Privacy** 🛡️  
-✅ No external cloud dependencies  
-✅ Local **AI inference with llama.cpp**  
-✅ **Fully air-gapped if needed**  
-
-### **4.4 CPU-Optimized AI-Powered RAG Pipeline** 🤖  
-1️⃣ **User query →** Sent to `llama.cpp` (CPU-only)  
-2️⃣ **Query transformed →** Passed to Redis vector DB  
-3️⃣ **Relevant knowledge retrieved →** From Neo4j knowledge graph  
-4️⃣ **Final AI response →** AI generates response  
+- 💬 Local chatbots and AI assistants  
+- 🔍 Search over documents, pages, and structured data  
+- 🧩 Graph-based reasoning with Neo4j  
+- 🧠 Embed and store knowledge using Redis vectors  
+- 🛡️ Fully offline / air-gapped deployments
 
 ---
 
-## **5. Prerequisites**  
-- **Windows 10/11 with WSL2** enabled  
-- **At least 4GB RAM** (8GB recommended for AI inference with >1b parameter models)  
-- **At least 20GB free disk space**  
+## 🧩 Features
+
+### 🛡️ Security
+- Passwordless local use; optional `fail2ban`, `ufw` for edge exposure
+- No SSH exposed by default
+- Auto security updates with `unattended-upgrades`
+
+### 🔄 Resilience
+- All critical services are systemd-managed
+- Auto-restarts on crash or reboot
+- Logs available via `journalctl`
+
+### 🧠 RAG Pipeline
+> CPU-only, cloud-free, privacy-first Retrieval-Augmented Generation:
+1. User sends query → `llama.cpp`  
+2. Query embedding → Redis vector DB  
+3. Knowledge retrieved → Neo4j  
+4. Final answer generated → All local
+
+### ⚙️ Light on Resources
+- ~1GB idle memory usage
+- Runs on as little as 2 cores and 4GB RAM
+- Zero GPU required
 
 ---
 
-## **6. Installation**  
+## 🖥️ Prerequisites
+
+- Windows 10/11 with WSL2
+- Installed Debian distro via Microsoft Store or `wsl --install -d Debian`
+- Min. 4GB RAM (8GB recommended)
+- 20GB free disk space
+
+---
+
+## 📦 Installation
 
 ```bash
-# Install WSL2 and Debian
+# In Windows Terminal:
 wsl --install -d Debian
 
-# Clone this repo
-git clone https://github.com/rajatasusual/llamabox.git
+# Inside Debian WSL shell:
+sudo apt update && sudo apt install git -y
+git clone https://github.com/rajatasusual/llamabox
 cd llamabox
-
-# Run setup script
 ./setup.sh
 ```
 
-For **detailed setup instructions**, see [INSTALLATION.md](docs/INSTALLATION.md).  
-For **frequently seen issues**, see [FAQs.md](docs/FAQs.md).
+🔧 See [INSTALLATION.md](docs/INSTALLATION.md) for customization and optional steps.
 
 ---
 
-## **7. Check the Services**  
+## 🔃 Service Management
 
 ```bash
-# Check all required services and restart if needed
+# Check service statuses (Redis, Neo4j, llama-server, etc.)
 ./scripts/check.sh
+
+# Or manually start a specific service:
+sudo systemctl restart neo4j
+sudo journalctl -u llama-server.service
 ```
 
-For troubleshooting, see logs in `/var/log/llamabox/`.
+📘 More in [MANAGE.md](docs/MANAGE.md)
 
 ---
 
-## **8. Performance Benchmarks**  
+## 🚀 Performance Benchmarks
 
-Llamabox is optimized for **low-latency CPU-only inference**. Below is a benchmark of `llama 3B Q8_0` on a low-end WSL2 setup.  
+> Test device: 4-core AMD Z1, 4GB RAM, WSL2 Debian  
+> Model: **LLaMA 3B Q8_0**
 
-### **Test System Specs:**  
-📌 **RAM:** 4GB  
-📌 **Storage:** 20GB  
-📌 **Processor:** AMD Z1 Extreme  
-📌 **# Cores:** 4  
-📌 **GPU:** ❌ (None—CPU-only inference)  
-📌 **OS:** Debian (WSL2)  
-
-### **Tokens Per Second (T/s) Benchmarks:**  
-
-| Model            | Size      | Params    | Backend | Threads | Test Type | Tokens/sec (± std) |
-|-----------------|----------:|----------:|---------|--------:|----------:|-------------------:|
-| **LLaMA 3B Q8_0** | 366.8MB  | 361.82M  | CPU     | 2       | pp512     | 253.07 ± 23.75    |
-| **LLaMA 3B Q8_0** | 366.8MB  | 361.82M  | CPU     | 2       | tg128     | 54.44 ± 4.87      |
+| Threads | Prompt Type | Tokens/sec | Notes |
+|---------|-------------|------------|-------|
+| 2       | `pp512`     | 253.07 ± 23.75 | Long-form |
+| 2       | `tg128`     | 54.44 ± 4.87   | Short query |
 
 ![Tokens per second](assets/tpt.png)
 
-### **Interpreting These Results**  
-✅ **Blazing fast inference on just a CPU!**  
-✅ **Low power consumption—runs smoothly on a 4GB RAM system!**  
-✅ **Ideal for low-end edge devices & offline AI assistants!**  
+✅ Runs smoothly on CPU-only setup  
+✅ Great for background tasks and lightweight chatbots  
+✅ All on a 10-year-old laptop? Yes.
 
 ---
 
-## **9. Roadmap**  
-Please see [TODO.md](TODO.md) for our detailed roadmap. This project is under active development, and we welcome community input on prioritizing features.
+## ❗️ FAQ & Troubleshooting
 
----
+- ❓ **Systemd isn't working in WSL2**  
+  ✅ Add this to `/etc/wsl.conf`:
+  ```ini
+  [boot]
+  systemd=true
+  ```
 
-## **10. Common Issues & Fixes**  
-
-❓ **Q: Redis Stack Server is not starting**  
-✅ **Fix**: Run `sudo systemctl restart redis-stack-server`  
-
-❓ **Q: "Out of memory" error when loading models**  
-✅ **Fix**:  
-- Try a smaller GGUF model (`SmolLM2-360M-Instruct.q8.gguf`)  
-- Increase **WSL2 memory**: Edit `.wslconfig` and set:  
+- ❓ **"Out of memory" loading model**  
+  ✅ Try a smaller GGUF model  
+  ✅ Or edit `.wslconfig` on Windows:
   ```ini
   [wsl2]
   memory=8GB
   ```
 
----
+- ❓ **Redis or Neo4j not starting?**  
+  ✅ Run `./scripts/check.sh`  
+  ✅ Or restart manually: `sudo systemctl restart redis-stack-server`
 
-## **11. Contributing**  
-Contributions are welcome!  
-
-1. Fork the repository  
-2. Create a new branch (`feature-xyz`)  
-3. Submit a **pull request**  
+More in [FAQs.md](docs/FAQs.md)
 
 ---
 
-## **12. License**  
-This project is licensed under the **MIT License**.  
+## 🤝 Contributing
+
+We’d love your help!  
+- Create issues, fix bugs, suggest features  
+- PRs welcome: fork → feature branch → pull request  
+- Style guide and guidelines coming soon
 
 ---
 
-## **13. Credits**  
-Shout-out to:  
-- **[llama.cpp](https://github.com/ggml-org/llama.cpp)** for CPU-based AI inference  
-- **[Redis](https://redis.io/)** for vector storage  
-- **[Neo4j](https://neo4j.com/)** for knowledge graphs  
-- **The WSL Community** for making Linux on Windows seamless  
+## 📄 License & Credits
+
+Licensed under the **MIT License**.  
+Shout-outs:
+- [llama.cpp](https://github.com/ggml-org/llama.cpp)
+- [Redis Stack](https://redis.io/)
+- [Neo4j](https://neo4j.com/)
+- [WSL2](https://learn.microsoft.com/en-us/windows/wsl/) ❤️
 
 ---
 
-## **14. Browser Extension**
+## 🌐 Browser Extension
 
-Llamabox can be used with a lightweight [browser extension](https://github.com/rajatasusual/llamabox_extension) to capture web content for your AI-powered knowledge base:
+The [Llamabox Extension](https://github.com/rajatasusual/llamabox_extension) captures web pages and sends them to your local server for embedding.
 
-✅ **Quick Content Capture**:
-- Select text snippets from any webpage
-- Extract full article content using Mozilla's Readability
-- Keyboard shortcuts for quick actions (Ctrl+B, Alt+B)
+🔹 Features:
+- Extract full article text or selection
+- Sync with WSL2 HTTP server
+- Works offline, configurable shortcuts
 
-✅ **Key Features**:
-- Automatic sync with local WSL server
-- Secure data storage and transmission
-- Easy configuration via options page
-- Dynamic status indicators
-- Works offline with periodic sync
+🔧 To install:
+- Clone the repo
+- Load `extension/` as an unpacked extension in Chrome or Edge
+- Set WSL IP in config page
 
-✅ **Installation**:
-Load as an unpacked extension in Chrome/Edge and configure your WSL host IP.
-
-For detailed setup instructions and documentation, see [README.md](https://github.com/rajatasusual/llamabox_extension/blob/master/README.md).
+Docs: [llamabox_extension/README.md](https://github.com/rajatasusual/llamabox_extension/blob/master/README.md)

@@ -1,117 +1,127 @@
-### 🚀 **Llamabox - Setup Summary**  
+### **Llamabox - Setup Summary**  
 
-Here's a **high-level breakdown** of the setup process, categorized by components:  
+This is a **high-level overview** of your full setup—spanning installation, AI services, database integrations, security, and performance optimization.  
+
+For command-line references, see [MANAGE.md](/docs/MANAGE.md).
 
 ---
 
-## **🛠 1. System Setup (WSL & Debian)**  
+## 🛠 1. System Setup (WSL & Debian)  
 ✅ Install **WSL2** and **Debian** on Windows  
 ✅ Allocate **at least 4GB RAM & 20GB storage**  
-✅ Clone the repository and run `./setup.sh`  
+✅ Clone the repo and run the auto-installer  
 
-```sh
+```bash
 wsl --install -d Debian
 git clone https://github.com/rajatasusual/llamabox.git
 cd llamabox
 ./setup.sh
 ```
 
+> 💡 For WSL2 IP, memory, and shutdown commands, see `MANAGE.md > PowerShell`.
+
 ---
 
-## **📦 2. Database & Vector Store**  
+## 📦 2. Database & Vector Store  
 
-### **🔴 Redis Stack (Vector Storage)**
-✅ Installed **Redis Stack** for vector embeddings  
-✅ Enabled **persistent storage** for AI data  
-✅ Auto-start configured with `systemctl enable redis`  
+### 🔴 **Redis Stack (Vector Embeddings)**  
+✅ Installed and configured **Redis Stack**  
+✅ Enabled **persistence** to avoid data loss  
+✅ Auto-start on boot with `systemctl enable redis`  
 
-```sh
+```bash
 sudo systemctl start redis
 ```
 
 ---
 
-### **🟢 Neo4j (Graph Database)**
-✅ Installed **Neo4j** for knowledge graph storage  
-✅ Exposed Neo4j to the Windows host (`server.default_listen_address=0.0.0.0`)  
-✅ Auto-restart enabled  
+### 🟢 **Neo4j (Graph Storage)**  
+✅ Installed and configured **Neo4j**  
+✅ Opened to host with `server.default_listen_address=0.0.0.0`  
+✅ Auto-restarts on failure via `systemd`  
 
-```sh
-sudo nano /etc/neo4j/neo4j.conf  # Uncomment 'server.default_listen_address=0.0.0.0'
+```bash
+sudo nano /etc/neo4j/neo4j.conf   # Set listen address to 0.0.0.0
 sudo systemctl restart neo4j
 ```
 
 ---
 
-## **🧠 3. AI Model (Local Inference with llama.cpp)**  
+## 🧠 3. AI Model Inference (llama.cpp)  
 
-### **🤖 llama.cpp (CPU-based AI Engine)**
-✅ Installed **llama.cpp** for **low-end, CPU-only AI inference**  
-✅ Benchmarked **3B-parameter model** at **~253 tokens/sec**  
-✅ Integrated with Redis for **RAG-based document Q&A**  
-✅ Configured `llama-server` to **bind to `0.0.0.0`**  
+### 🤖 **llama.cpp (CPU-only Inference)**  
+✅ Built from source with local model integration  
+✅ Benchmarked **3B model** at **~253 tokens/sec**  
+✅ Exposed `llama-server` on all interfaces (`0.0.0.0`)  
+✅ Works with Redis for **RAG-style document Q&A**  
 
-```sh
+```bash
 llama-server --host 0.0.0.0
 ```
 
 ---
 
-## **🛡 4. Security & Resilience**  
+## 🛡 4. Security & Resilience  
 
-✅ **Security Hardened**  
-   - Disabled **root SSH login**  
-   - Enabled **firewall (`ufw`) and Fail2Ban**  
-   - **Automatic security updates**  
+✅ Hardened the WSL2 Debian environment:  
+- Disabled **root SSH login**  
+- Enabled **firewall (UFW)** and **Fail2Ban**  
+- Enabled **unattended security upgrades**  
 
-✅ **Resilience & Auto-Restart**  
-   - Redis & Neo4j configured for **automatic recovery**  
-   - Services restart on crashes via **systemd**  
+✅ Ensured service resilience:  
+- All key services auto-restart via `systemd`  
+- Redis and Neo4j recover from crash or reboot  
 
-```sh
+```bash
 sudo systemctl enable redis neo4j
 ```
 
+> 🔍 See `MANAGE.md > Service Management` for logs and status checks.
+
 ---
 
-## **🚀 5. Running the Full Stack**  
+## 🚀 5. Running the Full Stack  
 
-To check everything in one go:  
+Use the all-in-one checker to ensure all services are up:
 
-```sh
+```bash
 ./scripts/check.sh
 ```
 
 This will:  
-✅ Start **Redis**, **Neo4j**, **llama-server**, **embed-server** , **redis worker**, **http-server** in order
-✅ Ensure **services restart** if they crash  
-✅ Enable **network access** from Windows  
+✅ Start `redis`, `neo4j`, `llama-server`, `embed-server`, `redis-worker`, and `http-server`  
+✅ Monitor & restart them automatically  
+✅ Enable access from your Windows browser or tools  
 
 ---
 
-## **📊 6. Performance Benchmarks**  
+## 📊 6. Performance Benchmarks  
 
-### **Test Environment (WSL2 Debian)**
+### 🧪 Test Environment  
 - **CPU**: AMD Z1 Extreme (4 Cores)  
 - **RAM**: 4GB  
-- **Storage**: 20GB SSD  
-- **OS**: Debian  
-- **GPU**: **None** (CPU-only inference)  
+- **Disk**: 20GB SSD  
+- **OS**: Debian on WSL2  
+- **GPU**: None (CPU-only inference)  
 
-### **Benchmark Results**
-| Model                | Tokens/sec | VRAM (MB) |
-|----------------------|-----------|-----------|
-| **Llama 3B Q8_0**    | **253 t/s** | **~900MB** |
-| **Mistral 7B Q4_K_S** | ~6 t/s    | ~4GB      |
-| **LLaMA 13B Q8_0**  | ~2 t/s    | ~10GB     |
+### 📈 Model Performance  
 
----
+| Model                 | Tokens/sec | RAM Usage |
+|----------------------|------------|-----------|
+| **LLaMA 3B Q8_0**     | **253 t/s** | ~900MB    |
+| **Mistral 7B Q4_K_S** | ~6 t/s     | ~4GB      |
+| **LLaMA 13B Q8_0**    | ~2 t/s     | ~10GB     |
 
-## **🔜 Next Steps**  
-✅ Run inference queries via Redis + Neo4j  
-✅ Extend with **LangChain** for custom workflows  
-✅ Monitor & tweak **resource limits for WSL**  
+> 🧠 Performance will vary based on WSL config and CPU throttling.  
 
 ---
 
-This is now **fully optimized for low-end, CPU-only devices** while maintaining **enterprise-grade AI capabilities**. 🚀
+## 🔜 Next Steps  
+
+✅ Run queries through Redis-backed RAG pipeline  
+✅ Extend with **LangChain workflows** or **custom embedding sources**  
+✅ Use [MANAGE.md](./MANAGE.md) to debug, monitor, and tune system performance  
+
+---
+
+This setup is now **fully optimized for low-end devices** running **CPU-only inference**.

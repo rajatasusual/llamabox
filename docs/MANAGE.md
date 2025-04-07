@@ -1,71 +1,133 @@
-# Introduction
+# 🔧 Managing Your Llamabox
 
-This document provides a structured overview of various command-line tools and commands for system management on Debian and Windows PowerShell for WSL2 environments. It includes sections for obtaining system information, managing packages, handling services, and working with WSL2 on Windows.
+This document provides a structured, easy-to-follow reference of helpful **Debian** and **Windows PowerShell** commands, especially useful when managing your **Llamabox** installed via [SETUP.md](./SETUP.md). Whether you're monitoring system resources, debugging services, or tweaking performance, this guide has you covered.
 
-## 11. Helpful Debian Commands
+---
 
-### System Information
+## 🖥️ 1. Debian System Management
 
-```bash
-# Check disk space
-df -h /                    # Show disk usage
-du -sh /path/to/dir        # Directory size
+These commands are run inside your **Debian WSL2 environment**, and help you monitor, debug, and optimize your system.
 
-# Memory usage
-free -h                    # RAM usage
-top                        # Process monitor
-vmstat                     # Virtual memory stats
+### 📊 System Monitoring & Diagnostics
 
-# System monitoring
-uptime                     # System uptime
-uname -a                   # Kernel info
-lscpu                      # CPU info
-ss -l                      # List all open ports
-ps xw                      # List all running jobs
-```
-
-### Package Management
+Use these commands to keep an eye on system health and performance.
 
 ```bash
-# APT commands
-apt update                 # Update package list
-apt upgrade                # Upgrade packages
-apt search package         # Search for package
-apt show package           # Show package details
-apt autoremove             # Remove unused packages
+df -h /                       # View disk usage on root
+du -sh /path/to/dir           # Check size of specific directory
 
-# Package maintenance
-dpkg -l                    # List installed packages
-apt clean                  # Clear package cache
-apt autoclean              # Remove old packages
+free -h                       # Show memory usage
+top                           # Real-time process monitor
+vmstat                        # Virtual memory stats
+
+uptime                        # Show how long the system has been running
+uname -a                      # Kernel info and system architecture
+lscpu                         # Detailed CPU information
+
+ss -l                         # List all listening ports
+ps xw                         # View all active processes with details
 ```
 
-### Service Management
+> 🔍 **Tip:** Use these regularly after setting up services like `llama.cpp`, `Redis`, and `Neo4j` to spot any performance bottlenecks.
+
+---
+
+### 📦 Package Management (APT)
+
+Essential for installing, upgrading, and cleaning packages in your Debian system.
 
 ```bash
-# Systemctl commands
-systemctl status name_of_service    # Check service status
-systemctl list-units                # List all services
-systemctl --failed                  # Show failed services
-journalctl -xe                      # View system logs
-journalctl --unit=my.service -n 100 --no-pager # Show last 100 lines for a service
+apt update                    # Refresh package index
+apt upgrade                   # Upgrade installed packages
+apt search <package>          # Search for a package
+apt show <package>            # Display package details
+
+apt autoremove                # Remove unused packages
+apt clean                     # Remove downloaded archives
+apt autoclean                 # Remove outdated archives
+
+dpkg -l                       # List all installed packages
 ```
 
-## 12. Windows PowerShell Commands for WSL2
+> ✅ **Useful After:** Adding or modifying software during setup (e.g., `git-lfs`, `fail2ban`, `llama.cpp`).
+
+---
+
+### 🔁 Service Control (Systemd)
+
+These are vital when working with services you've configured during setup (e.g., `llama-server`, `redis-stack-server`, `neo4j`, etc.).
+
+```bash
+# Check service status
+systemctl status <service>
+
+# List all active services
+systemctl list-units
+
+# Show any failed services
+systemctl --failed
+
+# View real-time system logs
+journalctl -xe
+
+# View logs for a specific service (e.g., llama-server)
+journalctl --unit=llama-server.service -n 100 --no-pager
+```
+
+> 🛠️ **Use When:** Debugging service failures or confirming everything is running post-reboot.
+
+---
+
+## 💻 2. Windows PowerShell for WSL2
+
+These PowerShell commands help you interact with your WSL2 environment *from the Windows side*, especially helpful for networking, VHD management, or troubleshooting.
+
+---
+
+### 🌐 Network & Connectivity
+
+Check if your local services (inside WSL2) are reachable from Windows.
 
 ```powershell
-# Test network connectivity to WSL services
-Test-NetConnection WSL_IP -p 6379   # Redis
-Test-NetConnection WSL_IP -p 7474   # Neo4j
-Test-NetConnection WSL_IP -p 11434  # Ollama
+Test-NetConnection <WSL_IP> -p 6379    # Test Redis connection
+Test-NetConnection <WSL_IP> -p 7474    # Test Neo4j connection
+Test-NetConnection <WSL_IP> -p 8080    # Test llama.cpp server
+```
 
-# Find WSL2 VHD location
+> 💡 **Find your WSL IP with:** `wsl hostname -I`
+
+---
+
+### 🗂️ WSL VHD Location (WSL2 Disk)
+
+Want to find where your WSL2 Debian filesystem lives?
+
+```powershell
 (Get-ChildItem -Path HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss | 
  Where-Object { $_.GetValue("DistributionName") -eq 'Debian' }).GetValue("BasePath") + "\ext4.vhdx"
-
-# WSL management
-wsl --list --verbose                # List distros with status
-wsl hostname -I                     # Get WSL IP address
-wsl --shutdown                     # Stop all distros
-wsl --update                       # Update WSL core
 ```
+
+> 🔒 **Pro Tip:** Back up this `.vhdx` file regularly if your setup is critical.
+
+---
+
+### ⚙️ Manage WSL Itself
+
+General WSL2 control commands.
+
+```powershell
+wsl --list --verbose         # List WSL distros and running state
+wsl hostname -I              # Get current WSL IP
+wsl --shutdown               # Gracefully shut down all running WSL instances
+wsl --update                 # Update WSL kernel to latest version
+```
+
+> 🚨 **Run After:** Major updates or if networking breaks after reboot.
+
+---
+
+## 📌 Final Notes
+
+- Combine this guide with your [INSTALLATION.md](/docs/INSTALLATION.md) for a full lifecycle view: from installation to long-term operation.
+- Always verify services are healthy after a system update or reboot.
+- Use logs generously—`journalctl` and `systemctl status` are your best friends when something seems off.

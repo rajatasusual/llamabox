@@ -1,52 +1,67 @@
-# Setting Up a Local RAG AI Assistant in WSL2 with Debian
+# **Setting Up Llamabox in WSL2 with Debian**
 
-This guide provides step-by-step instructions for setting up a local Retrieval-Augmented Generation (RAG) AI assistant using WSL2 with Debian. The setup includes Redis for vector storage, Neo4j for knowledge graphs, and llama.cpp for AI inference capabilities.
+This guide walks you through installing a full **Retrieval-Augmented Generation (RAG)** assistant locally using **WSL2 with Debian**, **Redis Stack**, **Neo4j**, **llama.cpp**, and **embedding models** — complete with systemd-managed services and security best practices.
 
-Prerequisites:
-- Windows 10/11 with WSL2 support
-- At least 8GB RAM and 20GB free disk space
-- Administrative access to install packages
+---
 
-## What We'll Set Up
-- [x] WSL2 with Debian
-- [x] Essential system tools
-- [x] Database systems (Redis, Neo4j)
-- [x] AI capabilities with llama.cpp
-- [x] Security configurations
-- [x] Service auto-restart settings
+## 🔧 Prerequisites
 
-## Table of Contents
-1. [Configure WSL](#1-configure-wsl)
-2. [Install Debian on WSL2](#2-install-debian-on-wsl2)
-3. [Install Essential Packages](#3-install-essential-packages)
-4. [Install Redis Stack Server](#4-install-redis-stack-server)
-5. [Install Neo4j](#5-install-neo4j)
-6. [Install llama.cpp and AI Models](#6-install-llamacpp-and-ai-models)
-7. [Install Embedding Model](#7-install-embedding-model)
-8. [Configure Redis Queue Worker](#8-configure-redis-queue-worker)
-9. [Create HTTP Server Service](#9-create-http-server-service)
-10. [Auto-Restart Services on Crash](#10-auto-restart-services-on-crash)
-11. [Secure the Server](#11-secure-the-server)
-12. [Make Redis Persistent](#12-make-redis-persistent)
-13. [Verify Setup](#13-verify-setup)
-14. [Manage your setup](#14-manage-your-setup)
+- Windows 10/11 with **WSL2 support**
+- At least **4GB RAM (8GB recommended)** and **20GB free disk space**
+- **Admin privileges**
+- [Install Windows Terminal](https://aka.ms/terminal) for a better experience
 
+---
 
-## **1. Configure WSL**
+## What You'll Set Up
 
-### **Enable WSL2**
+To create a functional, resilient, and secure AI assistant, you'll install the following stack:
+
+- WSL2 with Debian for a Linux-based environment on Windows
+- Redis Stack for high-speed data retrieval and caching
+- Neo4j for graph-based knowledge storage
+- `llama.cpp` for efficient local LLM inference
+- Model servers for embeddings and reranking
+- Python-based APIs and background workers
+- Linux security and system service management tools
+
+---
+
+## 📖 Table of Contents
+
+1. [Configure WSL](#1-configure-wsl)  
+2. [Install Debian](#2-install-debian-on-wsl2)  
+3. [Install Essentials](#3-install-essential-packages)  
+4. [Install Redis Stack](#4-install-redis-stack-server)  
+5. [Install Neo4j](#5-install-neo4j)  
+6. [Install llama.cpp and Download AI Models](#6-install-llamacpp-and-ai-models)  
+7. [Serve Models](#7-Serve-Models)  
+8. [Configure Redis Queue Worker](#8-configure-redis-queue-worker)  
+9. [Create HTTP Server Service](#9-create-http-server-service)  
+10. [Auto-Restart Services](#10-auto-restart-services-on-crash)  
+11. [Secure Your Setup](#11-secure-the-server)  
+12. [Make Redis Persistent](#12-make-redis-persistent)  
+13. [Verify Setup](#13-verify-setup)  
+14. [Manage and Maintain](#14-manage-your-setup)
+
+---
+
+## 1. Configure WSL
+
+WSL2 provides a Linux environment inside Windows using virtualization. You need to enable and tune it properly to support long-running AI services and Docker-like capabilities.
+
+### Enable WSL2
 ```powershell
-# Enable required Windows features
 dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
 dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
 ```
 
-### **Set WSL2 as Default**
+### Set WSL2 as Default
 ```powershell
 wsl --set-default-version 2
 ```
 
-Create file at `%UserProfile%\.wslconfig`:
+### Optional: Configure `.wslconfig` (in `%UserProfile%`)
 ```ini
 [wsl2]
 processors=4
@@ -61,84 +76,121 @@ defaultVhdSize=20GB
 hostAddressLoopback=true
 bestEffortDnsParsing=true
 ```
+
 ---
 
-## **2. Install Debian on WSL2**
+## 2. Install Debian on WSL2
 
-### **Install Debian**
+Debian is the base OS where all your tools and services will run. It’s lightweight, stable, and widely supported — ideal for local development.
+
 ```powershell
-# Install from Microsoft Store or use:
 wsl --install -d Debian
 ```
-### **First Login**
-When Debian starts:
+
+On first login:
 ```bash
 # Set username and password when prompted
 # Update package list
 sudo apt update && sudo apt upgrade -y
 ```
+
 ---
 
-## **3. Install Essential Packages**
+## 3. Install Essential Packages
+
+You need system tools, Python dependencies, and security basics to support upcoming services like Redis, Neo4j, and your AI servers.
+
 ```bash
-sudo apt install -y curl wget ufw fail2ban unattended-upgrades openssh-server
+sudo apt install -y curl wget ufw fail2ban openssh-server \
+  git lsb-release gpg python3-venv python3-pip cmake ninja-build \
+  unattended-upgrades
+```
+
+### Setup Git LFS and Models
+We will need Git LFS to download information extraction pipeline models.
+```bash
+cd $HOME
+# Setup Git LFS
+curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+sudo apt-get install git-lfs
+```
+
+### Install python dependencies
+```bash
+python3 -m venv venv
+source ~/venv/bin/activate
+pip install rq redis flask requests neo4j numpy psutil retry
+deactivate
 ```
 
 ---
 
-## **4. Install Redis Stack Server**
+## 4. Install Redis Stack Server
+
+Redis Stack is a high-performance database ideal for managing queues, caching LLM results, and storing vector data. It’s lightweight and integrates well with Python.
+
 ```bash
-sudo apt-get install -y lsb-release curl gpg
 curl -fsSL https://packages.redis.io/gpg | sudo gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg
 sudo chmod 644 /usr/share/keyrings/redis-archive-keyring.gpg
 echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb jammy main" | sudo tee /etc/apt/sources.list.d/redis.list
 sudo apt update
 sudo apt install -y redis-stack-server
-sudo systemctl enable redis-stack-server
-sudo systemctl start redis-stack-server
-redis-cli ping  # Test Redis
+sudo systemctl enable --now redis-stack-server
+```
+
+### Verify Redis Stack Server
+```bash
+redis-cli ping
+# The outpout of the last command should be `PONG`.
 ```
 
 ---
 
-## **5. Install Neo4j**
-### **Install Java**
+## 5. Install Neo4j
+
+Neo4j enables knowledge graphs — a powerful way to store, query, and relate data entities. This is crucial for contextual memory in RAG applications.
+
+### Java 21
 ```bash
 wget https://download.oracle.com/java/21/latest/jdk-21_linux-x64_bin.deb
 sudo dpkg -i jdk-21_linux-x64_bin.deb
+```
+Test Java is installed
+```bash
 java --version
+# The output of the last command should be `openjdk version "xxx"`
+```
+Remove the downloaded file
+```bash
 sudo rm jdk-21_linux-x64_bin.deb
 ```
-### **Install Neo4j**
+
+### Neo4j
 ```bash
 wget -O - https://debian.neo4j.com/neotechnology.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/neotechnology.gpg
 echo 'deb [signed-by=/etc/apt/keyrings/neotechnology.gpg] https://debian.neo4j.com stable latest' | sudo tee -a /etc/apt/sources.list.d/neo4j.list
-sudo apt-get update
-sudo apt-get install -y neo4j=1:2025.02.0
+sudo apt update
+sudo apt install -y neo4j=1:2025.02.0
 ```
-### **Set Initial Password & Enable Outside connections**
+
+### Initial Config
 ```bash
 sudo neo4j-admin dbms set-initial-password password
-NEO4J_CONF="/etc/neo4j/neo4j.conf"
-sudo sed -i 's|# server.default_listen_address=0.0.0.0|server.default_listen_address=0.0.0.0|' "$NEO4J_CONF"    
+sudo sed -i 's|# server.default_listen_address=0.0.0.0|server.default_listen_address=0.0.0.0|' /etc/neo4j/neo4j.conf
+sudo systemctl enable --now neo4j
 ```
-### **ENable service & check status**
+Verify Neo4j is running
 ```bash
-sudo systemctl enable neo4j
-sudo systemctl start neo4j
 neo4j status  # Check status
 ```
 
 ---
 
-## **6. Install llama.cpp and AI Models**
+## 6. Install llama.cpp and AI Models
 
-### **Install Prerequisites**
-```bash
-sudo apt-get install -y git cmake ninja-build python3-venv python3-pip
-```
+`llama.cpp` is a performant LLM runtime for running local models with low resource overhead. You’ll also download embedding and reranking models to enrich query responses.
 
-### **Build llama.cpp**
+### Build llama.cpp
 ```bash
 git clone https://github.com/ggml-org/llama.cpp.git
 cd llama.cpp
@@ -149,81 +201,74 @@ cmake -S . -B build -G Ninja \
   -DLLAMA_BUILD_TESTS=OFF \
   -DLLAMA_BUILD_EXAMPLES=ON \
   -DLLAMA_BUILD_SERVER=ON \
-  -DBUILD_SHARED_LIBS=OFF
+  -DBUILD_SHARED_LIBS=OFF \
+  -DLLAMA_CURL=OFF
 
 cmake --build build --config Release -j $(nproc)
 sudo cmake --install build --config Release
 ```
 
-### **Install Git LFS and Clone Model**
-```bash
-cd $HOME
-# Setup Git LFS
-curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
-sudo apt-get install git-lfs
+### Download Models
 
-# Clone and pull model files
-git clone https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct
-cd SmolLM2-360M-Instruct
-git lfs install
-git lfs pull
-cd $HOME
+```bash
+mkdir -p $HOME/$MODEL_DIR
+cd $HOME/$MODEL_DIR
 ```
 
-### **Setup Python Environment and Download Model**
+Gemma3-1b model - Our primary inference model
 ```bash
-cd $HOME
-# Setup Python environment
-python3 -m venv llama-cpp-venv
-source ./llama-cpp-venv/bin/activate
-python -m pip install --upgrade pip wheel setuptools
-
-# Install conversion requirements
-python -m pip install --upgrade -r llama.cpp/requirements/requirements-convert_hf_to_gguf.txt
-
-# Convert and quantize model
-python llama.cpp/convert_hf_to_gguf.py SmolLM2-360M-Instruct --outfile ./models/SmolLM2.gguf
-llama-quantize ./models/SmolLM2.gguf ./models/SmolLM2.q8.gguf Q8_0 N
-sudo rm ./models/SmolLM2.gguf
-deactivate
+wget "$HOME/$MODEL_DIR/Gemma3-1b.gguf" "https://huggingface.co/unsloth/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q2_K_L.gguf" 
 ```
->Note: You need to manually download the `model.safetensors` file from HuggingFace and place it in the `SmolLM2-360M-Instruct` directory.
+Nomic-embed-text-v1.5 model - Our embedding model
+```bash
+wget "$HOME/$MODEL_DIR/Nomic-embed-text-v1.5.gguf" "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q4_K_S.gguf"
+```
+BGE-reranker-v3-m3 model - Our reranker model
+```bash
+wget "$HOME/$MODEL_DIR/bge-reranker-v2-m3-Q2_K.gguf" "https://huggingface.co/gpustack/bge-reranker-v2-m3-GGUF/resolve/main/bge-reranker-v2-m3-Q2_K.gguf"
+```
 
->Important: you would need to replace "N" with the number of cores you want to setup for inference.  
+## **7. Serve Models**
 
-### **Create Llama service**
+We have three services to create, llama-server.service, embed-server.service and rerank-server.service.
+
+Here is the reference table:
+
+| Service Name | Working Directory | Exec Command |
+|--------------|-------------------|-------------|
+| llama-server | $HOME | /usr/local/bin/llama-server -m $HOME/$MODEL_DIR/Gemma3-1b.gguf --cpu-strict 1 --host 0.0.0.0 -c 2048 -t 2 --no-webui  |
+| embed-server | $HOME | /usr/local/bin/llama-server --embedding --port 8000 -ngl 99 $HOME/$MODEL_DIR/Nomic-embed-text-v1.5.gguf -c 8192 -b 8192 --rope-scaling yarn --rope-freq-scale .75 --host 0.0.0.0 |
+| rerank-server | $HOME | /usr/local/bin/llama-server --port 8008 -m $HOME/$MODEL_DIR/bge-reranker-v2-m3-Q2_K.gguf --host 0.0.0.0 |
+
+To create the services we need to add the following content to the `/etc/systemd/system/{Service Name}.service` file.
 
 ```ini
 [Unit]
-Description=llama-server Service
+Description=${service_name} Service
 After=network.target
 
 [Service]
 Type=simple
-# Update the ExecStart path and model path as necessary
-ExecStart=/usr/local/bin/llama-server -m $HOME/models/SmolLM2.q8.gguf --host 0.0.0.0
+ExecStart=${exec_cmd}
 Restart=on-abnormal
-RestartSec=5
-User=$USER
-WorkingDirectory=$HOME
-# Optionally, log output to syslog
+RestartSec=3
+User=${USER}
+WorkingDirectory=${HOME}/${working_dir}
 StandardOutput=syslog
 StandardError=syslog
-SyslogIdentifier=llama-server
+SyslogIdentifier=${service_name}
 
 [Install]
 WantedBy=multi-user.target
 ```
 
----
-
 ### Instructions to Enable the Service
 
 1. **Create the Service File:**  
-   Save the above content as `/etc/systemd/system/llama-server.service`.  
+   Save the above content as `/etc/systemd/system/{Service Name}.service`.  
    ```bash
-   sudo touch /etc/systemd/system/llama-server.service 
-   sudo nano /etc/systemd/system/llama-server.service
+   sudo touch /etc/systemd/system/{Service Name}.service 
+   sudo nano /etc/systemd/system/{Service Name}.service
    ```
 
 2. **Reload Systemd:**  
@@ -234,12 +279,12 @@ WantedBy=multi-user.target
 
 3. **Enable the Service at Boot:**  
    ```bash
-   sudo systemctl enable llama-server
+   sudo systemctl enable {Service Name}
    ```
 
 4. **Start the Service:**  
    ```bash
-   sudo systemctl start llama-server
+   sudo systemctl start {Service Name}
    ```
 
 5. **Check Service Status:**  
@@ -247,58 +292,10 @@ WantedBy=multi-user.target
    curl -X GET http://localhost:8080/health
    ```
 ---
-## **7. Install Embedding Model**
-
-### **Download and Setup Model**
-```bash
-# Clone model repository
-GIT_LFS_SKIP_SMUDGE=1 git clone https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF
-cd nomic-embed-text-v1.5-GGUF
-
-# Pull specific model file
-git lfs pull --include "nomic-embed-text-v1.5.Q2_K.gguf"
-
-# Move to models directory
-mv nomic-embed-text-v1.5.Q2_K.gguf $HOME/models/nomic-embed-text-v1.5.gguf
-cd $HOME
-```
-
-### **Create Embed Server Service**
-Create file at `/etc/systemd/system/embed-server.service`:
-```ini
-[Unit]
-Description=embed-server Service
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/llama-server --embedding --port 8000 -ngl 99 -m $HOME/models/nomic-embed-text-v1.5.Q2_K.gguf -c 8192 -b 8192 --rope-scaling yarn --rope-freq-scale .75 --host 0.0.0.0
-Restart=on-abnormal
-RestartSec=3
-User=$USER
-WorkingDirectory=$HOME
-StandardOutput=syslog
-StandardError=syslog
-SyslogIdentifier=embed-server
-
-[Install]
-WantedBy=multi-user.target
-```
-
-### **Enable and Test Service**
-```bash
-# Enable and start service
-sudo systemctl daemon-reload
-sudo systemctl enable embed-server
-sudo systemctl start embed-server
-
-# Test server health
-curl -X GET http://localhost:8000/health
-```
-
----
 
 ## **8. Configure Redis Queue Worker**
+
+The worker handles async jobs — offloading heavy computation from the HTTP server to a background process, which increases responsiveness and system efficiency.
 
 ### **Download and Setup Worker**
 ```bash
@@ -308,11 +305,6 @@ cd $HOME/http-server
 curl -o worker.py https://raw.githubusercontent.com/rajatasusual/llamabox/refs/heads/master/scripts/worker.py
 chmod +x worker.py
 cd $HOME
-
-# Install dependencies
-source ~/venv/bin/activate
-pip install rq redis flask requests
-deactivate
 ```
 
 ### **Create Worker Service**
@@ -349,6 +341,8 @@ $HOME/venv/bin/rq info --url redis://localhost:6379
 ```
 ## **9. Create HTTP Server Service**
 
+The HTTP server acts as the API layer for external tools (like a UI or chatbot) to interact with your RAG system. Running it as a service keeps it always-on and auto-recovering.
+
 ```bash
 # Set up HTTP server by copying the flask server script from the repository
 mkdir http-server
@@ -356,16 +350,11 @@ cd http-server
 curl -o http-server.py https://raw.githubusercontent.com/rajatasusual/llamabox/refs/heads/master/http-server.py
 chmod +x http-server.py
 cd $HOME
-
-# Setup Python environment
-python3 -m venv venv
-source ~/venv/bin/activate
-pip install Flask
-deactivate
 ```
 
 ### **Create Service File**
 Create file at `/etc/systemd/system/http-server.service`:
+
 ```ini
 [Unit]
 Description=http-server Service
@@ -406,6 +395,9 @@ WantedBy=multi-user.target
    ```
 
 ## **10. Auto-Restart Services on Crash**
+
+Services may crash occasionally. Configuring systemd to auto-restart ensures high availability without manual intervention.
+
 ```bash
 cd /etc/systemd/system/
 sudo cp /lib/systemd/system/neo4j.service .
@@ -441,9 +433,14 @@ sudo systemctl restart ssh
 ### **Step 2: Configure Firewall**
 ```bash
 sudo ufw allow ssh
-sudo ufw allow 6379/tcp  # Redis
-sudo ufw allow 7474/tcp  # Neo4j
-sudo ufw allow 8080/tcp  # llama.cpp
+sudo ufw allow 6379/tcp    # Redis
+sudo ufw allow 7474/tcp    # Neo4j
+sudo ufw allow 7687/tcp    # Neo4j
+sudo ufw allow 8080/tcp    # llama.cpp
+sudo ufw allow 8000/tcp    # embed-server
+sudo ufw allow 5000/tcp    # http-server
+sudo ufw allow 8008/tcp    # rerank-server
+    
 sudo ufw enable
 ```
 
@@ -510,4 +507,4 @@ sudo systemctl restart redis-stack-server
 
 ## **14. Manage your Setup**
 
-For detailed commands and instructions on managing your services—including handling processes on both Debian and Windows—please refer to [MANAGE.md](docs/MANAGE.md). This document covers system-specific commands, troubleshooting tips, and best practices for maintaining your RAG AI Assistant setup.
+For detailed commands and instructions on managing your services—including handling processes on both Debian and Windows—please refer to [MANAGE.md](/docs/MANAGE.md). This document covers system-specific commands, troubleshooting tips, and best practices for maintaining your RAG AI Assistant setup.

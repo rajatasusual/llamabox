@@ -119,6 +119,9 @@ box download_file "https://huggingface.co/unsloth/gemma-3-1b-it-GGUF/resolve/mai
 # 4.2 Download nomic-embed-text-v1.5 Model
 box log_info "Downloading nomic-embed-text-v1.5 Model..."
 box download_file "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q4_K_S.gguf" "$HOME/$MODEL_DIR/nomic-embed-text-v1.5.gguf"
+# 4.3 Download nomic-embed-text-v1.5 Model
+box log_info "Downloading bge-reranker-v2-m3 Model..."
+box download_file "https://huggingface.co/gpustack/bge-reranker-v2-m3-GGUF/resolve/main/bge-reranker-v2-m3-Q2_K.gguf" "$HOME/$MODEL_DIR/bge-reranker-v2-m3-Q2_K.gguf"
 
 # 5. Create and start llama-server service
 box print_header "5. Setup llama-server"
@@ -131,6 +134,12 @@ box print_header "5.2 Setup embed-server"
 EMBED_CMD="/usr/local/bin/llama-server --embedding --port 8000 -ngl 99 -m $HOME/$MODEL_DIR/nomic-embed-text-v1.5.gguf -c 8192 -b 8192 --rope-scaling yarn --rope-freq-scale .75 --host 0.0.0.0"
 box start_service "embed-server" "$EMBED_CMD" "$MODEL_DIR"
 box check_health "http://localhost:8000/health" '"status":"ok"'
+
+# 5.3 Create and start rerank-server service
+box print_header "5.3 Setup rerank-server"
+EMBED_CMD="/usr/local/bin/llama-server -m models/bge-reranker-v2-m3-Q2_K.gguf --port 8008 --host 0.0.0.0 --reranking"
+box start_service "rerank-server" "$EMBED_CMD" "$MODEL_DIR"
+box check_health "http://localhost:8008/health" '"status":"ok"'
 
 # 6. Download and Configure Redis Worker
 box print_header "6. Setup Redis Worker"
@@ -201,6 +210,7 @@ if [[ "$VIRT" == "wsl" ]]; then
     sudo ufw allow 8080/tcp    # llama.cpp
     sudo ufw allow 8000/tcp    # embed-server
     sudo ufw allow 5000/tcp    # http-server
+    sudo ufw allow 8008/tcp    # rerank-server
     sudo ufw --force enable
 
     box log_info "Enabling unattended-upgrades..."

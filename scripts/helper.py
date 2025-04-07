@@ -9,6 +9,7 @@ from redis.commands.search.query import Query
 from neo4j import GraphDatabase
 
 EMBEDDING_SERVER = "http://localhost:8000/embedding"  # Llama-cpp endpoint
+RERANK_SERVER = "http://localhost:8008/rerank"
 REDIS_HOST = "localhost"
 REDIS_PORT = 6379
 
@@ -147,6 +148,44 @@ def fetch_neo4j_data(doc_ids):
             entity_relations[doc_id]["entities"] = list(entity_relations[doc_id]["entities"])
         return entity_relations
 
+def rerank_docs(query_text, redis_docs, top_k=3):
+    """
+    Sends document content to the local reranker service and returns the top-k most relevant documents.
+
+    Args:
+        query_text (str): The query for reranking.
+        redis_docs (list): List of documents retrieved from Redis (with 'content' field).
+        top_k (int): Number of top documents to return after reranking.
+
+    Returns:
+        List of top-k documents (with rerank scores added).
+    """
+    # Prepare request payload
+    doc_texts = [doc.get("content", "") for doc in redis_docs]
+
+    payload = {
+        "query": query_text,
+        "documents": doc_texts
+    }
+
+    try:
+        response = requests.post(RERANK_SERVER, json=payload)
+        response.raise_for_status()
+        rerank_results = response.json().get("results", [])
+
+        # Attach relevance scores to the corresponding documents
+        for result in rerank_results:
+            idx = result["index"]
+            score = result["relevance_score"]
+            redis_docs[idx]["rerank_score"] = score
+
+        # Sort by relevance score (descending) and return top_k
+        top_reranked = sorted(redis_docs, key=lambda d: d.get("rerank_score", float("-inf")), reverse=True)
+        return top_reranked[:top_k]
+
+    except requests.RequestException as e:
+        print(f"Error during reranking: {e}")
+        return redis_docs[:top_k]  # Fallback: return top-k from original
 
 def context_search(query_text, k=5):
     """
@@ -154,6 +193,7 @@ def context_search(query_text, k=5):
     Merges entities, relations, and document metadata from Neo4j.
     """
     top_docs = redis_search(query_text, k)
+    top_docs = rerank_docs(query_text, top_docs)
 
     # Extract raw doc IDs (strip "doc:" prefix)
     doc_id_map = {doc["id"].split(":", 1)[1]: doc for doc in top_docs}

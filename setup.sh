@@ -106,7 +106,8 @@ cmake -S . -B build -G Ninja \
   -DLLAMA_BUILD_TESTS=OFF \
   -DLLAMA_BUILD_EXAMPLES=ON \
   -DLLAMA_BUILD_SERVER=ON \
-  -DBUILD_SHARED_LIBS=OFF
+  -DBUILD_SHARED_LIBS=OFF \
+  -DLLAMA_CURL=OFF
 
 cmake --build build --config Release -j "$(nproc)"
 sudo cmake --install build --config Release

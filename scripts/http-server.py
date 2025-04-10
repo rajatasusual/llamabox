@@ -143,10 +143,10 @@ def search():
 
     try:
         # Compute the embedding for the query
-        documents = context_search(query_text)
-        if not documents:
-            return jsonify({"message": "No similar documents found"}), 200
-        return jsonify({"documents": documents}), 200
+        result = context_search(query_text)
+        if not result["completion"]:
+            return jsonify({"message": "No results found"}), 200
+        return jsonify({"result": result}), 200
     except Exception as e:
         print(f"Error during search: {e}")
         return jsonify({"error": "Search failed"}), 500

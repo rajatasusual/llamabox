@@ -10,6 +10,7 @@ from neo4j import GraphDatabase
 
 EMBEDDING_SERVER = "http://localhost:8000/embedding"  # Llama-cpp endpoint
 RERANK_SERVER = "http://localhost:8008/rerank"
+LLAMA_SERVER = "http://localhost:8080/completion"
 REDIS_HOST = "localhost"
 REDIS_PORT = 6379
 
@@ -187,6 +188,95 @@ def rerank_docs(query_text, redis_docs, top_k=3):
         print(f"Error during reranking: {e}")
         return redis_docs[:top_k]  # Fallback: return top-k from original
 
+def extract_facts_and_entities(docs, confidence_threshold=0.6, max_facts=15):
+    facts = []
+    entities = {}
+
+    fact_id = 1
+    for doc in docs:
+        # Extract named entities
+        for ent_type, ent_values in doc.get("named_entities", {}).items():
+            if ent_type not in entities:
+                entities[ent_type] = set()
+            entities[ent_type].update(ent_values)
+
+        # Extract high-confidence facts from relations
+        for rel in doc.get("neo4j_relations", []):
+            subj = rel.get("subject")
+            rel_type = rel.get("relation")
+            obj = rel.get("object")
+            conf = rel.get("confidence")
+
+            if not subj or not rel_type or not obj:
+                continue
+            if conf is not None and conf < confidence_threshold:
+                continue
+
+            # Create readable sentence
+            fact_sentence = f"{subj} has relation '{rel_type}' with {obj}."
+            if conf is not None:
+                fact_sentence += f" [confidence: {round(conf, 2)}]"
+
+            facts.append((fact_id, fact_sentence))
+            fact_id += 1
+            if len(facts) >= max_facts:
+                break
+
+    # Convert sets to sorted lists
+    entities = {k: sorted(list(v)) for k, v in entities.items()}
+    return facts, entities
+
+
+def build_prompt(query, facts, entities, docs, include_content=True):
+    lines = [
+        "You are an expert in answering questions based on shared information. Answer the question using ONLY the information below. Keep answer short.",
+        "If the answer is not in the information provided, say: \"The answer is not available in the provided documents.\"",
+        "---",
+    ]
+    if include_content:
+        lines.append("\Information:")
+        for idx, doc in enumerate(docs, 1):
+            lines.append(f"\nDocument {idx}:\n{doc['content']}")
+
+    lines.append("\n---")
+    lines.append("\nAdditional Info:")
+
+    if facts:
+        lines.append("\nFacts:")
+        for fid, fact in facts:
+            lines.append(f"{fid}. {fact}")
+
+    if entities:
+        lines.append("\nEntities:")
+        for ent_type, ent_vals in entities.items():
+            lines.append(f"{ent_type}: {', '.join(ent_vals)}")
+
+    lines.append("\nQuestion:")
+    lines.append(query)
+    lines.append("\n---")
+    lines.append("\nAnswer:")
+
+    return "\n".join(lines)
+
+def call_slm(prompt, endpoint=LLAMA_SERVER):
+    payload = {"prompt": prompt}
+    response = requests.post(endpoint, json=payload)
+    response.raise_for_status()
+    return response.json() if response.status_code == 200 else None
+
+def generate_answer(query, docs, include_content=True):
+    facts, entities = extract_facts_and_entities(docs)
+    prompt = build_prompt(query, facts, entities, docs, include_content=include_content)
+    completion = call_slm(prompt)
+
+    return {
+        "completion": completion,
+        "prompt": prompt,
+        "facts_used": facts,
+        "named_entities": entities
+    }
+
+
 def context_search(query_text, k=5):
     """
     Fetches relevant documents from Redis and enriches them with Neo4j insights.
@@ -215,5 +305,5 @@ def context_search(query_text, k=5):
         # Add Neo4j entities and relations
         doc["entities"] = neo_data.get("entities", [])
         doc["neo4j_relations"] = neo_data.get("relations", [])
-
-    return list(doc_id_map.values())
+ 
+    return generate_answer(query_text, doc_id_map.values())

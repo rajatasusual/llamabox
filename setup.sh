@@ -126,7 +126,7 @@ box download_file "https://huggingface.co/gpustack/bge-reranker-v2-m3-GGUF/resol
 
 # 5. Create and start llama-server service
 box print_header "5. Setup llama-server"
-LLAMA_CMD="/usr/local/bin/llama-server -m $HOME/$MODEL_DIR/Gemma3-1b.gguf --cpu-strict 1 --host 0.0.0.0 -c 2048 -t 2 --no-webui"
+LLAMA_CMD="/usr/local/bin/llama-server -m $HOME/$MODEL_DIR/Gemma3-1b.gguf --cpu-strict 1 --host 0.0.0.0 -t 2 --no-webui --top-k 2 --n_predict 256"
 box start_service "llama-server" "$LLAMA_CMD" "$MODEL_DIR"
 box check_health "http://localhost:8080/health" '"status":"ok"'
 

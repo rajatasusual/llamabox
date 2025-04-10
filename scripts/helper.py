@@ -188,11 +188,11 @@ def rerank_docs(query_text, redis_docs, top_k=3):
         print(f"Error during reranking: {e}")
         return redis_docs[:top_k]  # Fallback: return top-k from original
 
-def extract_facts_and_entities(docs, confidence_threshold=0.6, max_facts=15):
+def extract_facts_and_entities(docs, confidence_threshold=0.8, max_facts=5):
     facts = []
     entities = {}
-
     fact_id = 1
+
     for doc in docs:
         # Extract named entities
         for ent_type, ent_values in doc.get("named_entities", {}).items():
@@ -219,18 +219,34 @@ def extract_facts_and_entities(docs, confidence_threshold=0.6, max_facts=15):
 
             facts.append((fact_id, fact_sentence))
             fact_id += 1
-            if len(facts) >= max_facts:
-                break
 
-    # Convert sets to sorted lists
+    # Sort by confidence (if available)
+    def get_conf_score(fact):
+        try:
+            return float(fact[1].split('[confidence: ')[-1].rstrip(']'))
+        except:
+            return 0.5
+
+    facts.sort(key=get_conf_score, reverse=True)
+
+    # Deduplicate facts
+    seen = set()
+    unique_facts = []
+    for fid, f in facts:
+        if f not in seen:
+            seen.add(f)
+            unique_facts.append((fid, f))
+        if len(unique_facts) >= max_facts:
+            break
+
+    # Convert entity sets to sorted lists
     entities = {k: sorted(list(v)) for k, v in entities.items()}
-    return facts, entities
 
+    return unique_facts, entities
 
 def build_prompt(query, facts, entities, docs, include_content=True):
     lines = [
-        "You are an expert in answering questions based on shared information. Answer the question using ONLY the information below. Keep answer short.",
-        "If the answer is not in the information provided, say: \"The answer is not available in the provided documents.\"",
+        "You are an expert in generating answer to a question based on shared information. Keep answer short.",
         "---",
     ]
     if include_content:
@@ -238,18 +254,15 @@ def build_prompt(query, facts, entities, docs, include_content=True):
         for idx, doc in enumerate(docs, 1):
             lines.append(f"\nDocument {idx}:\n{doc['content']}")
 
-    lines.append("\n---")
-    lines.append("\nAdditional Info:")
-
     if facts:
         lines.append("\nFacts:")
-        for fid, fact in facts:
-            lines.append(f"{fid}. {fact}")
+        for fact_id, fact in facts:
+            lines.append(f"\nFact {fact_id}: {fact}")
 
     if entities:
-        lines.append("\nEntities:")
-        for ent_type, ent_vals in entities.items():
-            lines.append(f"{ent_type}: {', '.join(ent_vals)}")
+        lines.append("\nNamed Entities:")
+        for ent_type, ent_values in entities.items():
+            lines.append(f"\n{ent_type}: {', '.join(ent_values)}")
 
     lines.append("\nQuestion:")
     lines.append(query)

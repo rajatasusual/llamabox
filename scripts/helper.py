@@ -60,9 +60,9 @@ def redis_search(query_text, k=5):
 
         # KNN Search Query using your "vector_idx"
         search_query = (
-            Query(f"*=>[KNN {k} @embedding $vec AS score]")  # Find 5 nearest neighbors
+            Query(f"*=>[KNN {k} @embedding $vec AS score]")  # Find k nearest neighbors
             .sort_by("score", asc=False)  # Sort by similarity score
-            .return_fields("content", "score")  # Retrieve content and score
+            .return_fields("score")  # Retrieve content and score
             .paging(0, 5)  # Limit results
             .dialect(2)  # Use dialect 2 for better query parsing
         )
@@ -98,7 +98,7 @@ def redis_search(query_text, k=5):
         redis_conn.close()
         gc.collect()
 
-def fetch_neo4j_data(doc_ids):
+def neo4j_enrich(doc_ids):
     """
     Retrieve document metadata, named entities, and all relationships (both incoming and outgoing)
     from Neo4j for a set of document IDs.
@@ -107,6 +107,9 @@ def fetch_neo4j_data(doc_ids):
       - metadata: title, url, date of the document,
       - entities: a list of tuples (entity text, entity type),
       - relations: a list of dictionaries with details about each relationship.
+      
+    Relationships are deduplicated based on the tuple (subject, relation, object) while keeping
+    only the highest confidence value for duplicate relationships.
     """
     query = """
         MATCH (d:Document)-[:MENTIONS]->(e)
@@ -122,7 +125,7 @@ def fetch_neo4j_data(doc_ids):
         entity_relations = {}
         for record in result:
             doc_id = record["doc_id"]
-            # Initialize doc entry with metadata if not already present
+            # Initialize the document's entry if not already present.
             if doc_id not in entity_relations:
                 entity_relations[doc_id] = {
                     "metadata": {
@@ -130,23 +133,36 @@ def fetch_neo4j_data(doc_ids):
                         "url": record["url"],
                         "date": record["date"]
                     },
+                    # Use a set to deduplicate entities by name and type.
                     "entities": set(),
-                    "relations": []
+                    # Use a dict to deduplicate relationships based on (subject, relation, object).
+                    "relations": {}
                 }
-            # Add entity info
+            # Add entity info to the set.
             entity = (record["entity"], record["entity_type"])
             entity_relations[doc_id]["entities"].add(entity)
-            # Add relationship info if available
+            
+            # Process relationship info if available.
             if record["relation"]:
-                entity_relations[doc_id]["relations"].append({
-                    "subject": record["entity"],
-                    "relation": record["relation"],
-                    "object": record["related_entity"],
-                    "confidence": record["confidence"]
-                })
-        # Convert entity sets to lists for JSON serialization
+                key = (record["entity"], record["relation"], record["related_entity"])
+                confidence = record["confidence"]
+                # If the same relationship exists, keep the one with the higher confidence.
+                if key in entity_relations[doc_id]["relations"]:
+                    if confidence is not None and confidence > entity_relations[doc_id]["relations"][key]["confidence"]:
+                        entity_relations[doc_id]["relations"][key]["confidence"] = confidence
+                else:
+                    entity_relations[doc_id]["relations"][key] = {
+                        "subject": record["entity"],
+                        "relation": record["relation"],
+                        "object": record["related_entity"] if record["relation"] != "MENTIONS" and record["related_entity"] else doc_id,
+                        "confidence": confidence if confidence is not None and record["relation"] != "MENTIONS" else 1.0
+                    }
+                    
+        # Convert sets and dictionaries to lists for JSON serialization.
         for doc_id in entity_relations:
             entity_relations[doc_id]["entities"] = list(entity_relations[doc_id]["entities"])
+            entity_relations[doc_id]["relations"] = list(entity_relations[doc_id]["relations"].values())
+            
         return entity_relations
 
 def rerank_docs(query_text, redis_docs, top_k=3):
@@ -187,6 +203,17 @@ def rerank_docs(query_text, redis_docs, top_k=3):
     except requests.RequestException as e:
         print(f"Error during reranking: {e}")
         return redis_docs[:top_k]  # Fallback: return top-k from original
+
+def neo4j_search(query_text, k=5):
+    top_docs = redis_search(query_text, k)
+    top_docs = rerank_docs(query_text, top_docs)
+
+    # Extract raw doc IDs (strip "doc:" prefix)
+    doc_id_map = {doc["id"].split(":", 1)[1]: doc for doc in top_docs}
+    doc_ids = list(doc_id_map.keys())
+
+    # Fetch Neo4j data for all doc_ids
+    return neo4j_enrich(doc_ids)
 
 def extract_facts_and_entities(docs, confidence_threshold=0.8, max_facts=5):
     facts = []
@@ -247,6 +274,7 @@ def extract_facts_and_entities(docs, confidence_threshold=0.8, max_facts=5):
 def build_prompt(query, facts, entities, docs, include_content=True):
     lines = [
         "You are an expert in generating answer to a question based on shared information. Keep answer short.",
+        "Rules:\n1. ONLY use the provided facts and documents.\n2. DO NOT use external or assumed information.\n3. If unsure, reply: 'Not enough information.'\n4. Keep the answer short and direct.",
         "---",
     ]
     if include_content:
@@ -295,15 +323,7 @@ def context_search(query_text, k=5):
     Fetches relevant documents from Redis and enriches them with Neo4j insights.
     Merges entities, relations, and document metadata from Neo4j.
     """
-    top_docs = redis_search(query_text, k)
-    top_docs = rerank_docs(query_text, top_docs)
-
-    # Extract raw doc IDs (strip "doc:" prefix)
-    doc_id_map = {doc["id"].split(":", 1)[1]: doc for doc in top_docs}
-    doc_ids = list(doc_id_map.keys())
-
-    # Fetch Neo4j data for all doc_ids
-    neo4j_data = fetch_neo4j_data(doc_ids)
+    neo4j_data = nsearch(query_text)
 
     # Merge Neo4j insights with Redis data
     for raw_doc_id, doc in doc_id_map.items():

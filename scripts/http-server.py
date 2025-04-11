@@ -10,7 +10,7 @@ import psutil
 from datetime import datetime
 
 from worker import embed_snippet 
-from helper import decode_redis_data, redis_search, context_search
+from helper import decode_redis_data, redis_search, neo4j_search, context_search
 
 
 app = Flask(__name__)
@@ -126,6 +126,24 @@ def rsearch():
     try:
         # Compute the embedding for the query
         documents = redis_search(query_text)
+        if not documents:
+            return jsonify({"message": "No similar documents found"}), 200
+        return jsonify({"documents": documents}), 200
+    except Exception as e:
+        print(f"Error during search: {e}")
+        return jsonify({"error": "Search failed"}), 500
+
+@app.route('/nsearch', methods=['POST'])
+def nsearch():
+    data = request.json
+    query_text = data.get("query")
+
+    if not query_text:
+        return jsonify({"error": "Query text is required"}), 400
+
+    try:
+        # Compute the embedding for the query
+        documents = neo4j_search(query_text)
         if not documents:
             return jsonify({"message": "No similar documents found"}), 200
         return jsonify({"documents": documents}), 200
